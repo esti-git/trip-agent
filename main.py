@@ -14,6 +14,7 @@ truststore.inject_into_ssl()
 from agent import AgentError, TripAgent  # noqa: E402  (must come after inject_into_ssl)
 from config import ConfigError, create_llm_client  # noqa: E402
 from prompts import build_goal  # noqa: E402
+from tools.geocoding import geocode  # noqa: E402
 from tools.weather import MAX_DAYS_AHEAD  # noqa: E402
 
 MIN_DRIVE_MINUTES = 10
@@ -56,10 +57,15 @@ def _ask(question: str, parse):
             print(f"   ⚠️  {e}")
 
 
-def _parse_origin(text: str) -> str:
+def _parse_origin(text: str) -> dict:
+    """Find the starting city on the map, so the agent never plans from a wrong place."""
     if not text:
         raise ValueError("יש להזין שם של עיר.")
-    return text
+    origin = geocode(text)
+    if "error" in origin:
+        raise ValueError(f"לא הצלחתי לאתר את '{text}' על המפה. בדקו את השם ונסו שוב.")
+    print(f"   📍 {origin['name']}")
+    return origin
 
 
 def _parse_date(text: str) -> datetime.date:

@@ -12,8 +12,9 @@ before sunset. Decide your next step yourself, based on what the tools return.
 How to think:
 - Before every tool call, write one short sentence in Hebrew saying what you are
   about to check and why. This lets the user follow your reasoning.
-- Learn the facts first: where the user starts and what the weather will be.
-  Always use coordinates returned by geocode; never guess coordinates.
+- The starting point is already verified and comes with its coordinates.
+  Start by learning what the weather will be there.
+- Always use coordinates returned by the tools or given in the goal; never guess them.
 - Decide which kind of trip suits that weather, using your own judgment, and say why.
   Take every part of the forecast into account, including the chance of rain.
   For example: rain or storms -> indoor (museum, cave, visitor center);
@@ -48,9 +49,12 @@ If you could not find a good trip, explain in Hebrew what you tried and why it d
 """
 
 
-def build_goal(origin: str, trip_date: str, max_drive_minutes: int) -> str:
-    """Turn the user's input into the goal message the agent works on."""
+def build_goal(origin: dict, trip_date: str, max_drive_minutes: int) -> str:
+    """Turn the user's checked input into the goal message the agent works on.
+
+    origin is a geocode result: {"name", "lat", "lon"}.
+    """
     return (f"Plan a day trip.\n"
-            f"Starting point: {origin}\n"
+            f"Starting point: {origin['name']} (lat {origin['lat']}, lon {origin['lon']})\n"
             f"Date: {trip_date}\n"
             f"Maximum one-way driving time: {max_drive_minutes} minutes")
