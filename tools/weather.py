@@ -13,7 +13,7 @@ MAX_DAYS_AHEAD = 15  # Open-Meteo forecasts today plus the next 15 days
 DAILY_FIELDS = ("temperature_2m_max,temperature_2m_min,precipitation_probability_max,"
                 "precipitation_sum,wind_speed_10m_max,uv_index_max,sunrise,sunset")
 
-SCHEMA = {
+GET_WEATHER_SCHEMA = {
     "type": "function",
     "function": {
         "name": "get_weather",

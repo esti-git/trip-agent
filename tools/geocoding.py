@@ -12,7 +12,7 @@ MIN_SECONDS_BETWEEN_CALLS = 1  # Nominatim usage policy
 
 _last_call_time = 0.0
 
-SCHEMA = {
+GEOCODE_SCHEMA = {
     "type": "function",
     "function": {
         "name": "geocode",
