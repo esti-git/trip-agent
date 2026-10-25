@@ -36,8 +36,12 @@ def test_too_far_is_outside_the_limit():
     assert result["within_limit"] is False
 
 
-@pytest.mark.parametrize("coords", [(95, 35, 31, 35), (31, 35, 31, 200)])
-def test_invalid_coordinates_return_error(coords):
+@pytest.mark.parametrize("coords", [
+    (95, 35, 31, 35),          # not a valid latitude
+    (31, 35, 31, 200),         # not a valid longitude
+    (31.25, 34.79, 30.79, 30.79),  # lat and lon mixed up: a point in Egypt
+])
+def test_points_outside_israel_return_error(coords):
     assert "error" in travel_time(*coords, max_minutes=60)
 
 

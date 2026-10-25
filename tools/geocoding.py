@@ -10,6 +10,11 @@ from tools.http_utils import get_json
 NOMINATIM_URL = "https://nominatim.openstreetmap.org/search"
 MIN_SECONDS_BETWEEN_CALLS = 1  # Nominatim usage policy
 
+# A box around Israel, from Eilat to the Golan. Used by the other tools to catch
+# coordinates the LLM made up or mixed up instead of taking them from geocode.
+ISRAEL_LAT_RANGE = (29.3, 33.5)
+ISRAEL_LON_RANGE = (34.2, 36.0)
+
 _last_call_time = 0.0
 
 GEOCODE_SCHEMA = {
@@ -51,6 +56,15 @@ def geocode(place: str) -> dict:
     return {"name": short_name,
             "lat": round(float(best["lat"]), 5),
             "lon": round(float(best["lon"]), 5)}
+
+
+def check_in_israel(lat: float, lon: float) -> str | None:
+    """Return an error message if the point is outside Israel, otherwise None."""
+    if (ISRAEL_LAT_RANGE[0] <= lat <= ISRAEL_LAT_RANGE[1]
+            and ISRAEL_LON_RANGE[0] <= lon <= ISRAEL_LON_RANGE[1]):
+        return None
+    return (f"The point ({lat}, {lon}) is outside Israel. "
+            "Use the exact coordinates returned by geocode.")
 
 
 def _respect_rate_limit() -> None:

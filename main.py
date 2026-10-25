@@ -1,0 +1,88 @@
+"""Entry point: ask the user for the trip details, check them, and run the agent.
+
+Run from the project root:  python main.py
+"""
+import datetime
+import sys
+
+import truststore
+
+# Use the operating system's certificates for HTTPS. Without this, Python
+# rejects connections behind filtering proxies such as NetFree.
+truststore.inject_into_ssl()
+
+from agent import AgentError, TripAgent  # noqa: E402  (must come after inject_into_ssl)
+from config import ConfigError, create_llm_client  # noqa: E402
+from prompts import build_goal  # noqa: E402
+from tools.weather import MAX_DAYS_AHEAD  # noqa: E402
+
+MIN_DRIVE_MINUTES = 10
+MAX_DRIVE_MINUTES = 300
+
+
+def main() -> int:
+    sys.stdout.reconfigure(encoding="utf-8")  # Hebrew output in the Windows console
+    print("🗺️  סוכן תכנון טיול יומי\n")
+
+    try:
+        origin = _ask("מאיזו עיר יוצאים? ", _parse_origin)
+        trip_date = _ask("באיזה תאריך? (DD/MM/YYYY): ", _parse_date)
+        max_minutes = _ask("זמן נסיעה מקסימלי לכיוון אחד, בדקות: ", _parse_minutes)
+    except (KeyboardInterrupt, EOFError):
+        print("\nבוטל.")
+        return 1
+
+    try:
+        agent = TripAgent(create_llm_client())
+        print("\n🤖 הסוכן מתחיל לעבוד...\n")
+        answer = agent.run(build_goal(origin, trip_date.isoformat(), max_minutes))
+    except (ConfigError, AgentError) as e:
+        print(f"\n❌ {e}")
+        return 1
+    except KeyboardInterrupt:
+        print("\nבוטל.")
+        return 1
+
+    print("\n" + "=" * 50 + "\n" + answer)
+    return 0
+
+
+def _ask(question: str, parse):
+    """Ask until the answer parses. parse() returns the value or raises ValueError."""
+    while True:
+        try:
+            return parse(input(question).strip())
+        except ValueError as e:
+            print(f"   ⚠️  {e}")
+
+
+def _parse_origin(text: str) -> str:
+    if not text:
+        raise ValueError("יש להזין שם של עיר.")
+    return text
+
+
+def _parse_date(text: str) -> datetime.date:
+    try:
+        trip_date = datetime.datetime.strptime(text, "%d/%m/%Y").date()
+    except ValueError:
+        raise ValueError("התאריך צריך להיות בפורמט DD/MM/YYYY, למשל 27/10/2026.") from None
+    today = datetime.date.today()
+    last_day = today + datetime.timedelta(days=MAX_DAYS_AHEAD)
+    if not today <= trip_date <= last_day:
+        raise ValueError(f"אפשר לתכנן רק מהיום ועד {last_day:%d/%m/%Y} (טווח התחזית).")
+    return trip_date
+
+
+def _parse_minutes(text: str) -> int:
+    try:
+        minutes = int(text)
+    except ValueError:
+        raise ValueError("יש להזין מספר שלם של דקות.") from None
+    if not MIN_DRIVE_MINUTES <= minutes <= MAX_DRIVE_MINUTES:
+        raise ValueError(f"יש להזין בין {MIN_DRIVE_MINUTES} ל-{MAX_DRIVE_MINUTES} דקות.")
+    return minutes
+
+
+if __name__ == "__main__":
+    sys.exit(main())

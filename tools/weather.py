@@ -6,6 +6,7 @@ a safe return.
 """
 import datetime
 
+from tools.geocoding import check_in_israel
 from tools.http_utils import get_json
 
 FORECAST_URL = "https://api.open-meteo.com/v1/forecast"
@@ -35,9 +36,9 @@ GET_WEATHER_SCHEMA = {
 
 def get_weather(lat: float, lon: float, date: str) -> dict:
     """Return the forecast for one day at one location, or {"error"}."""
-    date_error = _check_date(date)
-    if date_error:
-        return {"error": date_error}
+    input_error = check_in_israel(lat, lon) or _check_date(date)
+    if input_error:
+        return {"error": input_error}
 
     data, error = get_json(FORECAST_URL, {
         "latitude": lat, "longitude": lon, "daily": DAILY_FIELDS,

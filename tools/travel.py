@@ -7,6 +7,8 @@ visit fits in the day and that the trip ends before sunset.
 import datetime
 import math
 
+from tools.geocoding import check_in_israel
+
 EARTH_RADIUS_KM = 6371
 ROAD_FACTOR = 1.3          # roads are about 30% longer than a straight line
 AVERAGE_SPEED_KMH = 60
@@ -58,8 +60,9 @@ def travel_time(from_lat: float, from_lon: float, to_lat: float, to_lon: float,
                 max_minutes: int) -> dict:
     """Estimate the drive between two points and compare it to the user's limit."""
     for lat, lon in ((from_lat, from_lon), (to_lat, to_lon)):
-        if not (-90 <= lat <= 90 and -180 <= lon <= 180):
-            return {"error": f"Invalid coordinates: ({lat}, {lon})."}
+        location_error = check_in_israel(lat, lon)
+        if location_error:
+            return {"error": location_error}
     if max_minutes <= 0:
         return {"error": "The maximum driving time must be positive."}
 
