@@ -55,7 +55,7 @@
 
 ## התקנה והרצה
 
-**דרישות:** Python 3.10 ומעלה, ומפתח API חינמי של Gemini.
+**דרישות:** Python 3.10 ומעלה, ומפתח API של OpenAI (או מפתח חינמי של Gemini, ראו בהמשך).
 
 1. **להוריד את הפרויקט:**
    ```bash
@@ -70,10 +70,11 @@
    ```
    (ב-Mac או ב-Linux: `.venv/bin/python` במקום `.venv\Scripts\python`)
 
-3. **להגדיר מפתח:** ליצור מפתח חינמי ב-[Google AI Studio](https://aistudio.google.com/apikey), להעתיק את `.env.example` לקובץ חדש בשם `.env` ולהדביק בו את המפתח:
+3. **להגדיר מפתח:** ליצור מפתח ב-[OpenAI](https://platform.openai.com/api-keys), להעתיק את `.env.example` לקובץ חדש בשם `.env` ולהדביק בו את המפתח:
    ```
-   LLM_API_KEY=המפתח_שלך
+   LLM_API_KEY=sk-...
    ```
+   הקרדיט של ה-API נפרד ממנוי ChatGPT. ריצה של האג'נט עם `gpt-4o-mini` עולה פחות מסנט.
 
 4. **להריץ, בממשק או בטרמינל:**
 
@@ -99,17 +100,18 @@
 | משתנה | חובה | ברירת מחדל | הסבר |
 |---|---|---|---|
 | `LLM_API_KEY` | ✅ | | מפתח ה-API |
-| `LLM_BASE_URL` | | Gemini | כתובת השירות |
-| `LLM_MODEL` | | `gemini-3.5-flash` | המודל הראשי |
-| `LLM_FALLBACK_MODELS` | | `gemini-flash-latest,gemini-flash-lite-latest` | מודלי גיבוי, לפי הסדר |
+| `LLM_BASE_URL` | | OpenAI | כתובת השירות |
+| `LLM_MODEL` | | `gpt-4o-mini` | המודל הראשי |
+| `LLM_FALLBACK_MODELS` | | (אין) | מודלי גיבוי לפי הסדר, למקרה שהמודל הראשי עמוס |
 
-**כדי לעבוד עם OpenAI במקום Gemini**, מספיק לשנות את `.env`, בלי לגעת בקוד:
+**כדי לעבוד בחינם עם Gemini במקום OpenAI**, מספיק לשנות את `.env`, בלי לגעת בקוד (מפתח חינמי ב-[Google AI Studio](https://aistudio.google.com/apikey)):
 ```
-LLM_API_KEY=sk-...
-LLM_BASE_URL=https://api.openai.com/v1
-LLM_MODEL=gpt-4o-mini
-LLM_FALLBACK_MODELS=
+LLM_API_KEY=המפתח_של_Gemini
+LLM_BASE_URL=https://generativelanguage.googleapis.com/v1beta/openai/
+LLM_MODEL=gemini-3.5-flash
+LLM_FALLBACK_MODELS=gemini-flash-latest,gemini-flash-lite-latest
 ```
+המכסה היומית החינמית של כל מודל ב-Gemini קטנה (בבדיקות שלי היא נגמרה אחרי כמה ריצות), ולכן כדאי להגדיר מודלי גיבוי.
 
 ## טיפול בשגיאות
 
@@ -121,7 +123,8 @@ LLM_FALLBACK_MODELS=
 
 ## החלטות והנחות
 
-- **Gemini ולא OpenAI.** ההוראות ממליצות על OpenAI, אבל ל-API של OpenAI אין מסלול חינמי. Gemini חינמי ותואם לספריית `openai`, כך שהקוד כתוב בדיוק כמו בדוגמה בהוראות, ומעבר ל-OpenAI הוא שינוי של `.env` בלבד.
+- **OpenAI עם `gpt-4o-mini`, כמו שההוראות ממליצות.** התחלתי עם Gemini כי הוא חינמי, אבל המכסה היומית החינמית נגמרה כבר בזמן הפיתוח, ומודלים עמוסים לא ענו. החיבור כתוב עם ספריית `openai` ומוגדר דרך `.env`, ולכן כל ספק שתואם ל-OpenAI (גם Gemini) עובד בלי לשנות קוד. מודלי הגיבוי (`LLM_FALLBACK_MODELS`) נולדו מאותה בעיה של עומס.
+- **`geocode` מחפש גם מחוץ לקוד המדינה `il` ומעדיף מקום אמיתי על פני רחוב.** הרבה אתרי טיול (כפר עציון, קומראן, הרודיון) ממופים ב-OpenStreetMap תחת קוד מדינה אחר, ובלי זה החיפוש "כפר עציון" החזיר את רחוב כפר עציון בירושלים.
 - **המקומות מגיעים מה-LLM ומאומתים מול המפה.** תכננתי לחפש אטרקציות במאגר של OpenStreetMap (Overpass API), אבל בבדיקות השירות לא החזיר תשובות. ה-LLM מכיר היטב את מקומות הטיול בישראל, ו-`geocode` מוודא שכל מקום שהוא מציע באמת קיים.
 - **זמן הנסיעה הוא הערכה:** מרחק בקו אוויר × 1.3, במהירות ממוצעת של 60 קמ"ש. שירות ניווט חינמי לא היה אמין מספיק, וההערכה מספיקה כדי לבחור בין יעדים. ההנחות מוגדרות כקבועים בראש [tools/travel.py](tools/travel.py).
 - **"חזרה לפני השקיעה"** = עוזבים את המקום לפחות 30 דקות לפני השקיעה, כדי לא לסיים מסלול בחושך.

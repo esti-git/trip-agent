@@ -1,8 +1,9 @@
 """Settings and the LLM client.
 
-The LLM is reached through the `openai` library. By default it talks to
-Gemini's OpenAI-compatible API (free); switching to OpenAI or another
-provider only needs LLM_BASE_URL and LLM_MODEL in .env, not a code change.
+The LLM is reached through the `openai` library. By default it uses OpenAI's
+gpt-4o-mini, as the assignment recommends. Any OpenAI-compatible provider
+(for example Gemini, which is free) only needs LLM_BASE_URL and LLM_MODEL
+in .env, not a code change.
 """
 import os
 
@@ -12,10 +13,10 @@ from openai import OpenAI
 load_dotenv()
 
 LLM_API_KEY = os.getenv("LLM_API_KEY")
-LLM_BASE_URL = os.getenv("LLM_BASE_URL", "https://generativelanguage.googleapis.com/v1beta/openai/")
-LLM_MODEL = os.getenv("LLM_MODEL", "gemini-3.5-flash")
+LLM_BASE_URL = os.getenv("LLM_BASE_URL") or "https://api.openai.com/v1"
+LLM_MODEL = os.getenv("LLM_MODEL") or "gpt-4o-mini"
 # Tried in order when the main model is overloaded. Comma-separated; empty disables fallback.
-LLM_FALLBACK_MODELS = os.getenv("LLM_FALLBACK_MODELS", "gemini-flash-latest,gemini-flash-lite-latest")
+LLM_FALLBACK_MODELS = os.getenv("LLM_FALLBACK_MODELS", "")
 
 MIN_DRIVE_MINUTES = 10    # limits for the user's maximum one-way drive
 MAX_DRIVE_MINUTES = 300
