@@ -57,8 +57,9 @@ class TripAgent:
             if not reply.tool_calls:
                 return reply.content or "הסוכן סיים בלי לכתוב תשובה."
 
-            if reply.content:
-                self.on_event(Event("thought", text=reply.content.strip()))
+            thought = clean_thought(reply.content or "")
+            if thought:
+                self.on_event(Event("thought", text=thought))
             for call in reply.tool_calls:
                 result = run_tool(call.function.name, call.function.arguments)
                 self.on_event(Event("tool", step=step, tool=call.function.name,
@@ -91,6 +92,18 @@ class TripAgent:
         """Try the model that just worked first next time, instead of the ones that failed."""
         self.models.remove(model)
         self.models.insert(0, model)
+
+
+def clean_thought(text: str) -> str:
+    """The LLM's explanation without lines of raw JSON.
+
+    Small models sometimes repeat the tool arguments as JSON in their text,
+    even when told not to. Those lines duplicate the tool call shown right
+    after, so they are dropped here instead of relying on the prompt.
+    """
+    lines = [line for line in text.strip().splitlines()
+             if not (line.strip().startswith("{") and line.strip().endswith("}"))]
+    return "\n".join(lines).strip()
 
 
 def _parse_arguments(arguments_json: str) -> dict:

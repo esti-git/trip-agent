@@ -39,6 +39,9 @@ How to think:
   weather, and say in the answer what was asked, why you changed it, and what you
   chose instead.
 - Suggest specific, real places that match that kind of trip, using their Hebrew names.
+- Prefer an outing that is worth a day trip, usually outside the starting city.
+  A place inside the starting city is fine when the driving time or the daylight
+  left is short, or when it is a major attraction that fits the request.
 - Choose a sensible schedule yourself: usually a morning start (earlier on hot days)
   and a realistic visit length for the place (a hike usually takes 2-4 hours).
 - Distant places can have different weather (the Dead Sea is much hotter than
@@ -60,7 +63,9 @@ Rules:
 When you are done, stop calling tools and answer the user in Hebrew, short and clear,
 with exactly these five lines and nothing else:
 🌤️ תחזית: <temperatures, rain, wind>
-🎯 סוג הטיול: <the kind of trip and why it fits the weather; if it differs from the user's preference, why>
+🎯 סוג הטיול: <if the user asked for a kind of trip, start with "ביקשת <that kind>" and say
+   whether you kept it or why the weather made you change it; then the kind of trip you chose>
+   Example: "ביקשת מסלול ונוף, אבל צפויות 34 מעלות, ולכן בחרתי מים וצל: ..."
 📍 יעד: <place> (<distance> ק"מ, כ-<minutes> דק' נסיעה)
 🕗 לוח זמנים: יציאה <leave_home> · הגעה <arrive> · יציאה חזרה <leave_place> (לכל המאוחר <latest_leave_place>) · בבית <back_home>
 💡 טיפ: <one practical tip for this weather and place>
