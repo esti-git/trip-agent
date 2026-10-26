@@ -2,8 +2,14 @@
 
 The loop ends when the LLM answers without asking for a tool (the goal is
 reached, or it explains why it cannot be), or when MAX_STEPS is used up.
+
+The agent does not print anything itself. It reports each step as an Event to
+an on_event function, so the terminal (main.py) and the web UI (app.py) can
+each show the steps in their own way.
 """
 import json
+from dataclasses import dataclass, field
+from typing import Callable
 
 from openai import (APIConnectionError, APIStatusError, APITimeoutError, InternalServerError,
                     OpenAI, RateLimitError)
@@ -21,9 +27,21 @@ class AgentError(Exception):
     """Raised when the agent cannot talk to the LLM at all."""
 
 
+@dataclass
+class Event:
+    """Something the agent did, reported so the user can follow its reasoning."""
+    kind: str                  # "thought", "tool" or "warning"
+    text: str = ""             # for "thought" and "warning"
+    step: int = 0              # for "tool": which LLM turn asked for it
+    tool: str = ""
+    arguments: dict = field(default_factory=dict)
+    result: dict = field(default_factory=dict)
+
+
 class TripAgent:
-    def __init__(self, client: OpenAI):
+    def __init__(self, client: OpenAI, on_event: Callable[[Event], None] = lambda event: None):
         self.client = client
+        self.on_event = on_event
         fallbacks = [m.strip() for m in config.LLM_FALLBACK_MODELS.split(",") if m.strip()]
         self.models = [config.LLM_MODEL, *fallbacks]
 
@@ -40,10 +58,12 @@ class TripAgent:
                 return reply.content or "הסוכן סיים בלי לכתוב תשובה."
 
             if reply.content:
-                print(f"💭 {reply.content.strip()}")
+                self.on_event(Event("thought", text=reply.content.strip()))
             for call in reply.tool_calls:
                 result = run_tool(call.function.name, call.function.arguments)
-                _print_step(step, call.function.name, call.function.arguments, result)
+                self.on_event(Event("tool", step=step, tool=call.function.name,
+                                    arguments=_parse_arguments(call.function.arguments),
+                                    result=result))
                 messages.append({"role": "tool", "tool_call_id": call.id,
                                  "content": json.dumps(result, ensure_ascii=False)})
 
@@ -60,7 +80,7 @@ class TripAgent:
                 return response.choices[0].message
             except TEMPORARY_LLM_ERRORS as e:
                 last_error = e
-                print(f"⚠️  המודל {model} לא זמין כרגע ({type(e).__name__})")
+                self.on_event(Event("warning", text=f"המודל {model} לא זמין כרגע ({type(e).__name__})"))
             except APIStatusError as e:
                 raise AgentError(f"שירות ה-LLM דחה את הבקשה (קוד {e.status_code}). "
                                  "בדקו את LLM_API_KEY ואת LLM_MODEL בקובץ .env.") from e
@@ -73,12 +93,10 @@ class TripAgent:
         self.models.insert(0, model)
 
 
-def _print_step(step: int, tool_name: str, arguments_json: str, result: dict) -> None:
-    """Show one tool call and its result, so the user can follow the agent's reasoning."""
+def _parse_arguments(arguments_json: str) -> dict:
+    """Tool arguments as a dict for display; run_tool reports bad JSON to the LLM separately."""
     try:
-        arguments = ", ".join(f"{k}={v!r}" for k, v in json.loads(arguments_json).items())
-    except (json.JSONDecodeError, AttributeError):
-        arguments = arguments_json
-    icon = "❌" if "error" in result else "✅"
-    print(f"[{step}] 🔧 {tool_name}({arguments})")
-    print(f"     {icon} {json.dumps(result, ensure_ascii=False)}")
+        arguments = json.loads(arguments_json or "{}")
+    except json.JSONDecodeError:
+        return {"raw": arguments_json}
+    return arguments if isinstance(arguments, dict) else {"raw": arguments_json}

@@ -17,9 +17,13 @@ LLM_MODEL = os.getenv("LLM_MODEL", "gemini-3.5-flash")
 # Tried in order when the main model is overloaded. Comma-separated; empty disables fallback.
 LLM_FALLBACK_MODELS = os.getenv("LLM_FALLBACK_MODELS", "gemini-flash-latest,gemini-flash-lite-latest")
 
+MIN_DRIVE_MINUTES = 10    # limits for the user's maximum one-way drive
+MAX_DRIVE_MINUTES = 300
+
 MAX_STEPS = 15            # the agent gives up after this many LLM turns
-LLM_MAX_RETRIES = 2       # retries on temporary errors such as "model overloaded"
-LLM_TIMEOUT_SECONDS = 60
+# Kept short on purpose: a stuck model should hand over to the fallback quickly.
+LLM_MAX_RETRIES = 1       # retries on temporary errors such as "model overloaded"
+LLM_TIMEOUT_SECONDS = 30
 
 
 class ConfigError(Exception):

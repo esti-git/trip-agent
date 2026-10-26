@@ -3,6 +3,7 @@
 The prompt describes the goal and the rules, not a fixed sequence of steps:
 the LLM decides on its own which tool to call next based on what it has learned.
 """
+import datetime
 
 SYSTEM_PROMPT = """\
 You are a day-trip planning agent for Israel. Your goal: find ONE good trip for
@@ -54,7 +55,11 @@ def build_goal(origin: dict, trip_date: str, max_drive_minutes: int) -> str:
 
     origin is a geocode result: {"name", "lat", "lon"}.
     """
-    return (f"Plan a day trip.\n"
+    goal = (f"Plan a day trip.\n"
             f"Starting point: {origin['name']} (lat {origin['lat']}, lon {origin['lon']})\n"
             f"Date: {trip_date}\n"
             f"Maximum one-way driving time: {max_drive_minutes} minutes")
+    if trip_date == datetime.date.today().isoformat():
+        now = datetime.datetime.now().strftime("%H:%M")
+        goal += f"\nThe trip is today and it is now {now}, so leave home after that time."
+    return goal

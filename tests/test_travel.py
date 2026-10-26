@@ -1,4 +1,6 @@
 """Tests for the travel calculations. Run from the project root: python -m pytest"""
+import datetime
+
 import pytest
 
 from tools.travel import plan_schedule, travel_time
@@ -51,8 +53,11 @@ def test_non_positive_limit_returns_error():
 
 # --- plan_schedule ---------------------------------------------------------
 
+TODAY = datetime.date.today().isoformat()
+TOMORROW = (datetime.date.today() + datetime.timedelta(days=1)).isoformat()
+
 def test_schedule_that_fits():
-    result = plan_schedule("08:00", drive_minutes=45, visit_hours=3, sunset="17:00")
+    result = plan_schedule(TOMORROW, "08:00", drive_minutes=45, visit_hours=3, sunset="17:00")
     assert result["arrive"] == "08:45"
     assert result["leave_place"] == "11:45"
     assert result["back_home"] == "12:30"
@@ -62,30 +67,45 @@ def test_schedule_that_fits():
 
 
 def test_schedule_that_ends_too_late():
-    result = plan_schedule("13:00", drive_minutes=60, visit_hours=4, sunset="17:00")
+    result = plan_schedule(TOMORROW, "13:00", drive_minutes=60, visit_hours=4, sunset="17:00")
     assert result["leave_place"] == "18:00"
     assert result["fits_before_sunset"] is False
     assert result["spare_minutes"] == -90
 
 
 def test_leaving_exactly_at_the_latest_time_still_fits():
-    result = plan_schedule("12:00", drive_minutes=30, visit_hours=4, sunset="17:00")
+    result = plan_schedule(TOMORROW, "12:00", drive_minutes=30, visit_hours=4, sunset="17:00")
     assert result["leave_place"] == "16:30"
     assert result["fits_before_sunset"] is True
     assert result["spare_minutes"] == 0
 
 
 def test_trip_past_midnight_is_marked_next_day():
-    result = plan_schedule("22:00", drive_minutes=60, visit_hours=2, sunset="17:00")
+    result = plan_schedule(TOMORROW, "22:00", drive_minutes=60, visit_hours=2, sunset="17:00")
     assert result["back_home"] == "02:00 (next day)"
     assert result["fits_before_sunset"] is False
 
 
 @pytest.mark.parametrize("leave_home, sunset", [("8am", "17:00"), ("08:00", "25:00"), (None, "17:00")])
 def test_bad_time_format_returns_error(leave_home, sunset):
-    assert "error" in plan_schedule(leave_home, drive_minutes=30, visit_hours=2, sunset=sunset)
+    assert "error" in plan_schedule(TOMORROW, leave_home, drive_minutes=30, visit_hours=2,
+                                    sunset=sunset)
 
 
 @pytest.mark.parametrize("drive_minutes, visit_hours", [(-10, 2), (30, 0)])
 def test_invalid_durations_return_error(drive_minutes, visit_hours):
-    assert "error" in plan_schedule("08:00", drive_minutes, visit_hours, sunset="17:00")
+    assert "error" in plan_schedule(TOMORROW, "08:00", drive_minutes, visit_hours, sunset="17:00")
+
+
+def test_departure_already_passed_today_returns_error():
+    assert "error" in plan_schedule(TODAY, "00:00", drive_minutes=30, visit_hours=2, sunset="17:00")
+
+
+def test_same_departure_time_tomorrow_is_fine():
+    assert "error" not in plan_schedule(TOMORROW, "00:00", drive_minutes=30, visit_hours=2,
+                                        sunset="17:00")
+
+
+@pytest.mark.parametrize("date", ["26/10/2026", "2026-02-30", None])
+def test_bad_date_returns_error(date):
+    assert "error" in plan_schedule(date, "08:00", drive_minutes=30, visit_hours=2, sunset="17:00")

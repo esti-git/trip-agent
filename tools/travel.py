@@ -45,12 +45,13 @@ PLAN_SCHEDULE_SCHEMA = {
         "parameters": {
             "type": "object",
             "properties": {
+                "date": {"type": "string", "description": "Trip date, YYYY-MM-DD"},
                 "leave_home": {"type": "string", "description": "Departure time, HH:MM"},
                 "drive_minutes": {"type": "integer", "description": "One-way drive time"},
                 "visit_hours": {"type": "number", "description": "Time to spend at the place"},
                 "sunset": {"type": "string", "description": "Sunset time, HH:MM"},
             },
-            "required": ["leave_home", "drive_minutes", "visit_hours", "sunset"],
+            "required": ["date", "leave_home", "drive_minutes", "visit_hours", "sunset"],
         },
     },
 }
@@ -77,16 +78,22 @@ def travel_time(from_lat: float, from_lon: float, to_lat: float, to_lon: float,
     }
 
 
-def plan_schedule(leave_home: str, drive_minutes: int, visit_hours: float,
+def plan_schedule(date: str, leave_home: str, drive_minutes: int, visit_hours: float,
                   sunset: str) -> dict:
     """Lay out the trip's times and check it finishes before sunset."""
     try:
+        trip_date = datetime.date.fromisoformat(date)
         start = _parse_time(leave_home)
         sunset_time = _parse_time(sunset)
-    except ValueError as e:
+    except (TypeError, ValueError) as e:
         return {"error": str(e)}
     if drive_minutes < 0 or visit_hours <= 0:
         return {"error": "Drive time cannot be negative and visit time must be positive."}
+
+    now = datetime.datetime.now()
+    if trip_date == now.date() and start.time() < now.time():
+        return {"error": f"{leave_home} has already passed today (it is now "
+                         f"{now:%H:%M}). Choose a later departure time."}
 
     arrive = start + datetime.timedelta(minutes=drive_minutes)
     leave_place = arrive + datetime.timedelta(hours=visit_hours)

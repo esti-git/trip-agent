@@ -1,8 +1,10 @@
-"""Entry point: ask the user for the trip details, check them, and run the agent.
+"""Terminal entry point: ask the user for the trip details, check them, and run the agent.
 
 Run from the project root:  python main.py
+(For the web interface, see app.py.)
 """
 import datetime
+import json
 import sys
 
 import truststore
@@ -11,14 +13,12 @@ import truststore
 # rejects connections behind filtering proxies such as NetFree.
 truststore.inject_into_ssl()
 
-from agent import AgentError, TripAgent  # noqa: E402  (must come after inject_into_ssl)
-from config import ConfigError, create_llm_client  # noqa: E402
+from agent import AgentError, Event, TripAgent  # noqa: E402  (must come after inject_into_ssl)
+from config import (MAX_DRIVE_MINUTES, MIN_DRIVE_MINUTES, ConfigError,  # noqa: E402
+                    create_llm_client)
 from prompts import build_goal  # noqa: E402
 from tools.geocoding import geocode  # noqa: E402
 from tools.weather import MAX_DAYS_AHEAD  # noqa: E402
-
-MIN_DRIVE_MINUTES = 10
-MAX_DRIVE_MINUTES = 300
 
 
 def main() -> int:
@@ -34,7 +34,7 @@ def main() -> int:
         return 1
 
     try:
-        agent = TripAgent(create_llm_client())
+        agent = TripAgent(create_llm_client(), on_event=print_event)
         print("\n🤖 הסוכן מתחיל לעבוד...\n")
         answer = agent.run(build_goal(origin, trip_date.isoformat(), max_minutes))
     except (ConfigError, AgentError) as e:
@@ -46,6 +46,19 @@ def main() -> int:
 
     print("\n" + "=" * 50 + "\n" + answer)
     return 0
+
+
+def print_event(event: Event) -> None:
+    """Print one agent step, so the user can follow its reasoning."""
+    if event.kind == "thought":
+        print(f"💭 {event.text}")
+    elif event.kind == "warning":
+        print(f"⚠️  {event.text}")
+    elif event.kind == "tool":
+        arguments = ", ".join(f"{k}={v!r}" for k, v in event.arguments.items())
+        icon = "❌" if "error" in event.result else "✅"
+        print(f"[{event.step}] 🔧 {event.tool}({arguments})")
+        print(f"     {icon} {json.dumps(event.result, ensure_ascii=False)}")
 
 
 def _ask(question: str, parse):
