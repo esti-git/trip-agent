@@ -9,6 +9,10 @@ from tools.http_utils import get_json
 
 NOMINATIM_URL = "https://nominatim.openstreetmap.org/search"
 MIN_SECONDS_BETWEEN_CALLS = 1  # Nominatim usage policy
+# Many trip sites (Qumran, Herodion, Kfar Etzion...) are mapped under "ps" in
+# OpenStreetMap. Searching "il" alone returns same-named streets instead.
+COUNTRY_CODES = "il,ps"
+CANDIDATES = 5
 
 # A box around Israel, from Eilat to the Golan. Used by the other tools to catch
 # coordinates the LLM made up or mixed up instead of taking them from geocode.
@@ -42,8 +46,8 @@ def geocode(place: str) -> dict:
 
     _respect_rate_limit()
     results, error = get_json(NOMINATIM_URL, {
-        "q": place, "format": "json", "limit": 1,
-        "countrycodes": "il", "accept-language": "he",
+        "q": place, "format": "json", "limit": CANDIDATES,
+        "countrycodes": COUNTRY_CODES, "accept-language": "he",
     })
     if error:
         return {"error": error}
@@ -51,11 +55,20 @@ def geocode(place: str) -> dict:
         return {"error": f"'{place}' was not found on the map. "
                          "Try the Hebrew name or a nearby well-known place."}
 
-    best = results[0]
+    best = _prefer_non_street(results)
     short_name = ", ".join(best["display_name"].split(", ")[:3])
     return {"name": short_name,
             "lat": round(float(best["lat"]), 5),
             "lon": round(float(best["lon"]), 5)}
+
+
+def _prefer_non_street(results: list[dict]) -> dict:
+    """Pick the first result that is not a street or bus stop named after the place.
+
+    Searching "כפר עציון" otherwise finds Kfar Etzion Street in Jerusalem before
+    the village itself. If only streets match, the first one is still a fair guess.
+    """
+    return next((r for r in results if r.get("class") != "highway"), results[0])
 
 
 def check_in_israel(lat: float, lon: float) -> str | None:

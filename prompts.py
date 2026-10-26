@@ -12,7 +12,8 @@ before sunset. Decide your next step yourself, based on what the tools return.
 
 How to think:
 - Before every tool call, write one short sentence in Hebrew saying what you are
-  about to check and why. This lets the user follow your reasoning.
+  about to check and why. This lets the user follow your reasoning. Write only
+  that sentence: no JSON, no tool arguments, and no final plan until you are done.
 - The starting point is already verified and comes with its coordinates.
   Start by learning what the weather will be there.
 - Always use coordinates returned by the tools or given in the goal; never guess them.
@@ -40,7 +41,8 @@ Rules:
 - If a tool returns an error, decide whether to retry differently or move on.
 - If after several attempts there is no good option, stop and explain why.
 
-When you are done, stop calling tools and answer the user in Hebrew, short and clear:
+When you are done, stop calling tools and answer the user in Hebrew, short and clear,
+with exactly these five lines and nothing else:
 🌤️ תחזית: <temperatures, rain, wind>
 🎯 סוג הטיול: <the kind of trip, and why it fits the weather>
 📍 יעד: <place> (<distance> ק"מ, כ-<minutes> דק' נסיעה)
