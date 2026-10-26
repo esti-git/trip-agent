@@ -64,8 +64,11 @@ def print_event(event: Event) -> None:
 def _ask(question: str, parse):
     """Ask until the answer parses. parse() returns the value or raises ValueError."""
     while True:
+        answer = input(question).strip()
+        if not sys.stdin.isatty():
+            print(answer)  # answers piped from a file are not echoed; show them in the log
         try:
-            return parse(input(question).strip())
+            return parse(answer)
         except ValueError as e:
             print(f"   ⚠️  {e}")
 

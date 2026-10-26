@@ -1,0 +1,42 @@
+🗺️  סוכן תכנון טיול יומי
+
+מאיזו עיר יוצאים? תל אביב
+   📍 תל־אביב–יפו, נפת תל אביב, מחוז תל אביב
+באיזה תאריך? (DD/MM/YYYY): 28/10/2026
+זמן נסיעה מקסימלי לכיוון אחד, בדקות: 45
+
+🤖 הסוכן מתחיל לעבוד...
+
+💭 אני הולך לבדוק את תחזית מזג האוויר בתל אביב-יפו. זה חשוב לזהות סוג טיול מתאים.
+[1] 🔧 get_weather(lat=32.0853, lon=34.78181, date='2026-10-28')
+     ✅ {"date": "2026-10-28", "temp_max_c": 26.5, "temp_min_c": 18.8, "rain_chance_percent": 10, "rain_mm": 0.0, "wind_max_kmh": 10.1, "uv_index_max": 4.7, "sunrise": "05:53", "sunset": "16:54"}
+💭 תחזית מזג האוויר בתל אביב-יפו היא מקסימום 26.5 מעלות ומינימום 18.8 מעלות, עם סיכוי קטן לגשם (10%), ורוח מתונה עד 10.1 קמ"ש. 
+
+אני אבדוק איזה מקומות מתאימים לטיול באותו מזג אוויר. זה מתאים לפעילויות חוץ כמו טיולים רגליים או ביקור באתרים טבעיים.
+[2] 🔧 geocode(place='עין חמד')
+     ✅ {"name": "עין חמד, מעוז ציון, נפת ירושלים", "lat": 31.79325, "lon": 35.13683}
+[2] 🔧 geocode(place='נמל תל אביב')
+     ✅ {"name": "נמל תל-אביב, העיר הלבנה בתל אביב, תל־אביב–יפו", "lat": 32.09865, "lon": 34.77552}
+[2] 🔧 geocode(place='פארק הירקון')
+     ✅ {"name": "גני יהושע, העיר הלבנה בתל אביב, תל־אביב–יפו", "lat": 32.10303, "lon": 34.81673}
+[3] 🔧 travel_time(from_lat=32.0853, from_lon=34.78181, to_lat=31.79325, to_lon=35.13683, max_minutes=45)
+     ✅ {"straight_line_km": 46.7, "estimated_road_km": 60.7, "estimated_minutes": 61, "within_limit": false}
+[3] 🔧 travel_time(from_lat=32.0853, from_lon=34.78181, to_lat=32.09865, to_lon=34.77552, max_minutes=45)
+     ✅ {"straight_line_km": 1.6, "estimated_road_km": 2.1, "estimated_minutes": 2, "within_limit": true}
+[3] 🔧 travel_time(from_lat=32.0853, from_lon=34.78181, to_lat=32.10303, to_lon=34.81673, max_minutes=45)
+     ✅ {"straight_line_km": 3.8, "estimated_road_km": 5.0, "estimated_minutes": 5, "within_limit": true}
+[4] 🔧 get_weather(lat=31.79325, lon=35.13683, date='2026-10-28')
+     ❌ {"error": "The service did not answer in time."}
+[4] 🔧 get_weather(lat=32.09865, lon=34.77552, date='2026-10-28')
+     ✅ {"date": "2026-10-28", "temp_max_c": 26.6, "temp_min_c": 18.9, "rain_chance_percent": 10, "rain_mm": 0.0, "wind_max_kmh": 10.1, "uv_index_max": 4.7, "sunrise": "05:53", "sunset": "16:54"}
+[4] 🔧 get_weather(lat=32.10303, lon=34.81673, date='2026-10-28')
+     ✅ {"date": "2026-10-28", "temp_max_c": 26.6, "temp_min_c": 18.9, "rain_chance_percent": 10, "rain_mm": 0.0, "wind_max_kmh": 10.1, "uv_index_max": 4.7, "sunrise": "05:53", "sunset": "16:54"}
+[5] 🔧 plan_schedule(date='2026-10-28', leave_home='09:00', drive_minutes=2, visit_hours=3, sunset='16:54')
+     ✅ {"leave_home": "09:00", "arrive": "09:02", "leave_place": "12:02", "back_home": "12:04", "latest_leave_place": "16:24", "fits_before_sunset": true, "spare_minutes": 262}
+
+==================================================
+🌤️ תחזית: 26.6-18.9 מעלות, 10% סיכוי לגשם, רוח עד 10.1 קמ"ש  
+🎯 סוג הטיול: טיול בעיר עם פעילויות חוץ, מתאים למזג האוויר הנעים  
+📍 יעד: נמל תל-אביב (2.1 ק"מ, כ-2 דק' נסיעה)  
+🕗 לוח זמנים: יציאה 09:00 · הגעה 09:02 · יציאה חזרה 12:02 (לכל המאוחר 16:24) · בבית 12:04  
+💡 טיפ: כדאי להביא מים ולבוש נוח להנאה מירבית בטיול.
