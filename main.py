@@ -16,7 +16,7 @@ truststore.inject_into_ssl()
 from agent import AgentError, Event, TripAgent  # noqa: E402  (must come after inject_into_ssl)
 from config import (MAX_DRIVE_MINUTES, MIN_DRIVE_MINUTES, ConfigError,  # noqa: E402
                     create_llm_client)
-from prompts import build_goal  # noqa: E402
+from prompts import NO_PREFERENCE_LABEL, TRIP_TYPES, build_goal  # noqa: E402
 from tools.geocoding import geocode  # noqa: E402
 from tools.weather import MAX_DAYS_AHEAD  # noqa: E402
 
@@ -29,6 +29,7 @@ def main() -> int:
         origin = _ask("מאיזו עיר יוצאים? ", _parse_origin)
         trip_date = _ask("באיזה תאריך? (DD/MM/YYYY): ", _parse_date)
         max_minutes = _ask("זמן נסיעה מקסימלי לכיוון אחד, בדקות: ", _parse_minutes)
+        trip_type = _ask(_trip_type_question(), _parse_trip_type)
     except (KeyboardInterrupt, EOFError):
         print("\nבוטל.")
         return 1
@@ -36,7 +37,7 @@ def main() -> int:
     try:
         agent = TripAgent(create_llm_client(), on_event=print_event)
         print("\n🤖 הסוכן מתחיל לעבוד...\n")
-        answer = agent.run(build_goal(origin, trip_date.isoformat(), max_minutes))
+        answer = agent.run(build_goal(origin, trip_date.isoformat(), max_minutes, trip_type))
     except (ConfigError, AgentError) as e:
         print(f"\n❌ {e}")
         return 1
@@ -104,6 +105,21 @@ def _parse_minutes(text: str) -> int:
     if not MIN_DRIVE_MINUTES <= minutes <= MAX_DRIVE_MINUTES:
         raise ValueError(f"יש להזין בין {MIN_DRIVE_MINUTES} ל-{MAX_DRIVE_MINUTES} דקות.")
     return minutes
+
+
+def _trip_type_question() -> str:
+    options = "\n".join(f"  {i}. {label}" for i, (label, _) in enumerate(TRIP_TYPES.values(), 1))
+    return f"איזה סוג טיול? (Enter = {NO_PREFERENCE_LABEL})\n{options}\nבחירה: "
+
+
+def _parse_trip_type(text: str) -> str | None:
+    """A number from the list, or empty for no preference. Returns a TRIP_TYPES key or None."""
+    if not text:
+        return None
+    keys = list(TRIP_TYPES)
+    if not text.isdigit() or not 1 <= int(text) <= len(keys):
+        raise ValueError(f"יש לבחור מספר בין 1 ל-{len(keys)}, או Enter אם אין העדפה.")
+    return keys[int(text) - 1]
 
 
 if __name__ == "__main__":

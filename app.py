@@ -13,7 +13,7 @@ truststore.inject_into_ssl()
 
 from agent import AgentError, Event, TripAgent  # noqa: E402  (must come after inject_into_ssl)
 from config import ConfigError, create_llm_client  # noqa: E402
-from prompts import build_goal  # noqa: E402
+from prompts import NO_PREFERENCE_LABEL, TRIP_TYPES, build_goal  # noqa: E402
 from tools.geocoding import geocode  # noqa: E402
 from tools.weather import MAX_DAYS_AHEAD  # noqa: E402
 
@@ -28,6 +28,9 @@ TOOL_LABELS = {
 # slider draws its handle in the wrong place when the browser language is Hebrew.
 DRIVE_OPTIONS = [30, 45, 60, 90, 120, 180]
 
+NO_PREFERENCE = "none"
+TRIP_TYPE_OPTIONS = [NO_PREFERENCE, *TRIP_TYPES]
+
 # Hebrew text right to left, applied only to text elements.
 RTL_STYLE = """
 <style>
@@ -36,6 +39,7 @@ RTL_STYLE = """
   [data-testid="stMetric"], [data-testid="stExpander"] summary
   { direction: rtl; text-align: right; }
   .stElementContainer:has(> [data-testid="stButtonGroup"]) { align-self: flex-end; }
+  [data-testid="stButtonGroup"] { direction: rtl; }  /* first option on the right */
   /* English tool errors stay readable inside a Hebrew line. */
   [data-testid="stMarkdownContainer"] code { direction: ltr; unicode-bidi: isolate; }
 </style>
@@ -57,14 +61,21 @@ def main() -> None:
                                   format="DD/MM/YYYY")
         max_minutes = st.segmented_control("זמן נסיעה מקסימלי לכיוון אחד", DRIVE_OPTIONS,
                                            default=60, format_func=lambda m: f"{m} דק'")
+        trip_type = st.segmented_control(
+            "איזה סוג טיול? (אם מזג האוויר לא יתאים, הסוכן יציע חלופה ויסביר)",
+            TRIP_TYPE_OPTIONS, default=NO_PREFERENCE,
+            format_func=lambda key: TRIP_TYPES[key][0] if key in TRIP_TYPES else NO_PREFERENCE_LABEL)
         submitted = st.form_submit_button("🚀 תכנן לי טיול", type="primary",
                                           use_container_width=True)
 
     if submitted:
-        plan_trip(city.strip(), trip_date, max_minutes)
+        # A cleared choice (clicking the selected option again) also means no preference.
+        preference = trip_type if trip_type in TRIP_TYPES else None
+        plan_trip(city.strip(), trip_date, max_minutes, preference)
 
 
-def plan_trip(city: str, trip_date: datetime.date, max_minutes: int | None) -> None:
+def plan_trip(city: str, trip_date: datetime.date, max_minutes: int | None,
+              trip_type: str | None) -> None:
     """Check the input, run the agent with live steps, and show the result."""
     if not city:
         st.warning("יש להזין עיר מוצא.")
@@ -85,7 +96,7 @@ def plan_trip(city: str, trip_date: datetime.date, max_minutes: int | None) -> N
 
         try:
             agent = TripAgent(create_llm_client(), on_event=show_event)
-            answer = agent.run(build_goal(origin, trip_date.isoformat(), max_minutes))
+            answer = agent.run(build_goal(origin, trip_date.isoformat(), max_minutes, trip_type))
         except (ConfigError, AgentError) as e:
             status.update(label="הסוכן לא הצליח לעבוד", state="error")
             st.error(str(e))

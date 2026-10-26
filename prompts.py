@@ -5,6 +5,17 @@ the LLM decides on its own which tool to call next based on what it has learned.
 """
 import datetime
 
+# The kinds of trip the user may ask for: key -> (label shown to the user, meaning for the LLM).
+# No preference is None: the agent then chooses the kind of trip from the weather alone.
+TRIP_TYPES = {
+    "hike": ("🏞️ מסלול ונוף", "a hiking trail with views"),
+    "water": ("💧 מים ומעיינות", "water: springs, streams or pools"),
+    "history": ("🏛️ היסטוריה ועתיקות", "history and archaeology sites"),
+    "indoor": ("🏠 מקום מקורה", "an indoor place: museum, cave or visitor center"),
+    "family": ("👨‍👩‍👧 משפחות וילדים", "a family-friendly place for young children"),
+}
+NO_PREFERENCE_LABEL = "ללא העדפה"
+
 SYSTEM_PROMPT = """\
 You are a day-trip planning agent for Israel. Your goal: find ONE good trip for
 the user's date that fits the weather, the user's maximum driving time, and ends
@@ -22,6 +33,11 @@ How to think:
   For example: rain or storms -> indoor (museum, cave, visitor center);
   heat -> water and shade (springs, streams), starting early;
   pleasant weather -> views and hiking trails.
+- If the user asked for a kind of trip, plan that kind when the weather allows it.
+  If the weather makes it unpleasant or unsafe (a hike in heavy rain or heat, a
+  spring on a cold stormy day), choose the closest alternative that suits the
+  weather, and say in the answer what was asked, why you changed it, and what you
+  chose instead.
 - Suggest specific, real places that match that kind of trip, using their Hebrew names.
 - Choose a sensible schedule yourself: usually a morning start (earlier on hot days)
   and a realistic visit length for the place (a hike usually takes 2-4 hours).
@@ -44,7 +60,7 @@ Rules:
 When you are done, stop calling tools and answer the user in Hebrew, short and clear,
 with exactly these five lines and nothing else:
 🌤️ תחזית: <temperatures, rain, wind>
-🎯 סוג הטיול: <the kind of trip, and why it fits the weather>
+🎯 סוג הטיול: <the kind of trip and why it fits the weather; if it differs from the user's preference, why>
 📍 יעד: <place> (<distance> ק"מ, כ-<minutes> דק' נסיעה)
 🕗 לוח זמנים: יציאה <leave_home> · הגעה <arrive> · יציאה חזרה <leave_place> (לכל המאוחר <latest_leave_place>) · בבית <back_home>
 💡 טיפ: <one practical tip for this weather and place>
@@ -52,15 +68,21 @@ If you could not find a good trip, explain in Hebrew what you tried and why it d
 """
 
 
-def build_goal(origin: dict, trip_date: str, max_drive_minutes: int) -> str:
+def build_goal(origin: dict, trip_date: str, max_drive_minutes: int,
+               trip_type: str | None = None) -> str:
     """Turn the user's checked input into the goal message the agent works on.
 
     origin is a geocode result: {"name", "lat", "lon"}.
+    trip_type is a key of TRIP_TYPES, or None for no preference.
     """
     goal = (f"Plan a day trip.\n"
             f"Starting point: {origin['name']} (lat {origin['lat']}, lon {origin['lon']})\n"
             f"Date: {trip_date}\n"
             f"Maximum one-way driving time: {max_drive_minutes} minutes")
+    if trip_type:
+        goal += f"\nPreferred kind of trip: {TRIP_TYPES[trip_type][1]}"
+    else:
+        goal += "\nNo preferred kind of trip: choose one that suits the weather."
     if trip_date == datetime.date.today().isoformat():
         now = datetime.datetime.now().strftime("%H:%M")
         goal += f"\nThe trip is today and it is now {now}, so leave home after that time."
