@@ -41,7 +41,8 @@ PLAN_SCHEDULE_SCHEMA = {
         "name": "plan_schedule",
         "description": "Build a day schedule for a trip and check that the visit ends "
                        f"at least {SUNSET_BUFFER_MINUTES} minutes before sunset. "
-                       "If it does not fit, the result says by how much.",
+                       "If it does not fit, the result says by how much, and "
+                       "max_visit_hours says how long a visit would still fit.",
         "parameters": {
             "type": "object",
             "properties": {
@@ -100,6 +101,8 @@ def plan_schedule(date: str, leave_home: str, drive_minutes: int, visit_hours: f
     back_home = leave_place + datetime.timedelta(minutes=drive_minutes)
     latest_leave_place = sunset_time - datetime.timedelta(minutes=SUNSET_BUFFER_MINUTES)
     spare_minutes = round((latest_leave_place - leave_place).total_seconds() / 60)
+    # The longest visit that still ends in time, so a too-long plan can be shortened.
+    max_visit_hours = max(0.0, (latest_leave_place - arrive).total_seconds() / 3600)
 
     return {
         "leave_home": _format_time(start),
@@ -109,6 +112,7 @@ def plan_schedule(date: str, leave_home: str, drive_minutes: int, visit_hours: f
         "latest_leave_place": _format_time(latest_leave_place),
         "fits_before_sunset": spare_minutes >= 0,
         "spare_minutes": spare_minutes,
+        "max_visit_hours": round(max_visit_hours, 2),
     }
 
 

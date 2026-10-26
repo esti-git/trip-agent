@@ -73,6 +73,17 @@ def test_schedule_that_ends_too_late():
     assert result["spare_minutes"] == -90
 
 
+def test_too_late_schedule_says_how_long_a_visit_would_fit():
+    # Arrive 14:00, must leave by 16:30 -> at most 2.5 hours there.
+    result = plan_schedule(TOMORROW, "13:00", drive_minutes=60, visit_hours=4, sunset="17:00")
+    assert result["max_visit_hours"] == 2.5
+
+
+def test_arriving_after_the_latest_time_leaves_no_visit():
+    result = plan_schedule(TOMORROW, "16:00", drive_minutes=60, visit_hours=1, sunset="17:00")
+    assert result["max_visit_hours"] == 0
+
+
 def test_leaving_exactly_at_the_latest_time_still_fits():
     result = plan_schedule(TOMORROW, "12:00", drive_minutes=30, visit_hours=4, sunset="17:00")
     assert result["leave_place"] == "16:30"

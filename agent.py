@@ -22,6 +22,13 @@ from tools import TOOL_SCHEMAS, run_tool
 # Errors that mean "try again later or with another model", not "your request is wrong".
 TEMPORARY_LLM_ERRORS = (RateLimitError, InternalServerError, APIConnectionError, APITimeoutError)
 
+# A final answer is a plan (its destination line) or an explanation of failure,
+# as the system prompt requires. Any other text without a tool call is unfinished.
+FINAL_ANSWER_MARKERS = ("📍", "❌")
+MAX_NUDGES = 2
+CONTINUE_NUDGE = ("Continue: call the next tool now. If you are done, give the final "
+                  "answer in the required format.")
+
 
 class AgentError(Exception):
     """Raised when the agent cannot talk to the LLM at all."""
@@ -50,14 +57,24 @@ class TripAgent:
         messages = [{"role": "system", "content": SYSTEM_PROMPT},
                     {"role": "user", "content": goal}]
 
+        nudges = 0
         for step in range(1, config.MAX_STEPS + 1):
-            reply = self._ask_llm(messages)
+            # Planning needs data, so the first turn must use a tool rather than answer.
+            reply = self._ask_llm(messages, must_use_tool=(step == 1))
             messages.append(reply.model_dump(exclude_none=True))
 
-            if not reply.tool_calls:
-                return reply.content or "הסוכן סיים בלי לכתוב תשובה."
-
             thought = clean_thought(reply.content or "")
+            if not reply.tool_calls:
+                if is_final_answer(reply.content or "") or nudges == MAX_NUDGES:
+                    return reply.content or "הסוכן סיים בלי לכתוב תשובה."
+                # Small models sometimes announce a check ("I will check...") without
+                # making the tool call. That is not an answer, so ask it to go on.
+                nudges += 1
+                if thought:
+                    self.on_event(Event("thought", text=thought))
+                messages.append({"role": "user", "content": CONTINUE_NUDGE})
+                continue
+
             if thought:
                 self.on_event(Event("thought", text=thought))
             for call in reply.tool_calls:
@@ -71,12 +88,13 @@ class TripAgent:
         return (f"לא הצלחתי להשלים תוכנית טיול תוך {config.MAX_STEPS} צעדים. "
                 "נסו זמן נסיעה ארוך יותר או תאריך אחר.")
 
-    def _ask_llm(self, messages: list) -> ChatCompletionMessage:
+    def _ask_llm(self, messages: list, must_use_tool: bool = False) -> ChatCompletionMessage:
         """Send the conversation to the LLM, trying the fallback models if one is overloaded."""
+        tool_choice = "required" if must_use_tool else "auto"
         for model in self.models:
             try:
                 response = self.client.chat.completions.create(
-                    model=model, messages=messages, tools=TOOL_SCHEMAS)
+                    model=model, messages=messages, tools=TOOL_SCHEMAS, tool_choice=tool_choice)
                 self._prefer(model)
                 return response.choices[0].message
             except TEMPORARY_LLM_ERRORS as e:
@@ -92,6 +110,11 @@ class TripAgent:
         """Try the model that just worked first next time, instead of the ones that failed."""
         self.models.remove(model)
         self.models.insert(0, model)
+
+
+def is_final_answer(text: str) -> bool:
+    """True if the text is a finished answer: a plan (📍) or an explanation of failure (❌)."""
+    return any(marker in text for marker in FINAL_ANSWER_MARKERS)
 
 
 def clean_thought(text: str) -> str:

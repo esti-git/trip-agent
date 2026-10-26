@@ -55,7 +55,8 @@ Rules:
   fits before sunset.
 - If a place is not found, too far, or does not fit, try another one. Learn from
   the result: if places are too far, look closer; if the day is too short,
-  start earlier or plan a shorter visit.
+  start earlier or plan a shorter visit (plan_schedule's max_visit_hours says
+  how long a visit still fits; a visit of an hour or more is still worth it).
 - Use only facts returned by the tools. Do not invent weather, distances or times.
 - If a tool returns an error, decide whether to retry differently or move on.
 - If after several attempts there is no good option, stop and explain why.
@@ -69,7 +70,8 @@ with exactly these five lines and nothing else:
 📍 יעד: <place> (<distance> ק"מ, כ-<minutes> דק' נסיעה)
 🕗 לוח זמנים: יציאה <leave_home> · הגעה <arrive> · יציאה חזרה <leave_place> (לכל המאוחר <latest_leave_place>) · בבית <back_home>
 💡 טיפ: <one practical tip for this weather and place>
-If you could not find a good trip, explain in Hebrew what you tried and why it did not work.
+If you could not find a good trip, start your answer with ❌ and explain in Hebrew what
+you tried and why it did not work.
 """
 
 
