@@ -4,6 +4,7 @@ Run from the project root:  streamlit run app.py
 The agent's steps appear live while it works, then the plan is shown.
 """
 import datetime
+from html import escape
 
 import streamlit as st
 import truststore
@@ -31,7 +32,34 @@ DRIVE_OPTIONS = [30, 45, 60, 90, 120, 180]
 NO_PREFERENCE = "none"
 TRIP_TYPE_OPTIONS = [NO_PREFERENCE, *TRIP_TYPES]
 
-# Hebrew text right to left, applied only to text elements.
+# The line prefixes of the agent's final answer (see prompts.SYSTEM_PROMPT).
+ANSWER_EMOJIS = ("🌤️", "🎯", "📍", "🕗", "💡")
+
+# Hebrew text right to left, applied only to text elements, and the plan card.
+STYLE = """
+<style>
+  .plan-card { direction: rtl; text-align: center; margin: 8px 0 12px;
+               padding: 28px 24px; border-radius: 18px;
+               background: rgba(15, 118, 110, 0.06); border: 1px solid rgba(15, 118, 110, 0.22); }
+  .plan-card .eyebrow { font-size: 0.8rem; letter-spacing: 0.08em; opacity: 0.6; }
+  .plan-card .destination { font-size: 2.1rem; font-weight: 700; color: #0f766e;
+                            line-height: 1.25; margin: 4px 0 10px; }
+  .plan-card .reason { max-width: 520px; margin: 0 auto 18px; opacity: 0.85; line-height: 1.6; }
+  .plan-card .facts { display: flex; justify-content: center; flex-wrap: wrap; gap: 8px;
+                      margin-bottom: 22px; }
+  .plan-card .fact { font-size: 0.85rem; padding: 4px 12px; border-radius: 999px;
+                     background: rgba(127, 127, 127, 0.12); }
+  .plan-card .timeline { display: flex; justify-content: center; align-items: flex-start;
+                         gap: 14px; margin: 0 auto 18px; }
+  .plan-card .stop { display: flex; flex-direction: column; gap: 2px; min-width: 64px; }
+  .plan-card .stop b { font-size: 1.05rem; }
+  .plan-card .stop span { font-size: 0.75rem; opacity: 0.6; }
+  .plan-card .arrow { opacity: 0.35; padding-top: 2px; }
+  .plan-card .tip { font-size: 0.9rem; opacity: 0.8; margin: 0; }
+  @media (prefers-color-scheme: dark) { .plan-card .destination { color: #2dd4bf; } }
+</style>
+"""
+
 RTL_STYLE = """
 <style>
   [data-testid="stMarkdownContainer"], [data-testid="stCaptionContainer"],
@@ -48,7 +76,7 @@ RTL_STYLE = """
 
 def main() -> None:
     st.set_page_config(page_title="סוכן טיולים", page_icon="🗺️")
-    st.markdown(RTL_STYLE, unsafe_allow_html=True)
+    st.markdown(RTL_STYLE + STYLE, unsafe_allow_html=True)
     st.title("🗺️ סוכן תכנון טיול יומי")
     st.caption("ספרו לי מאיפה יוצאים ומתי, ואני אבדוק את מזג האוויר, אבחר יעד מתאים "
                "ואבנה לוח זמנים שחוזר לפני השקיעה.")
@@ -104,9 +132,7 @@ def plan_trip(city: str, trip_date: datetime.date, max_minutes: int | None,
         checks = sum(1 for e in events if e.kind == "tool")
         status.update(label=f"✅ הסוכן סיים אחרי {checks} בדיקות", state="complete")
 
-    _show_summary_cards(events)
-    with st.container(border=True):
-        st.markdown(answer.replace("\n", "  \n"))  # keep the answer's line breaks
+    show_result(answer, events)
 
 
 def _describe(event: Event) -> str:
@@ -135,27 +161,59 @@ def _describe(event: Event) -> str:
     return f"**{label}** ✅ {summary}"
 
 
-def _show_summary_cards(events: list[Event]) -> None:
-    """Big numbers from the last successful weather, drive and schedule checks."""
-    def last(tool: str, condition=lambda r: True) -> dict | None:
-        matches = [e.result for e in events
-                   if e.tool == tool and "error" not in e.result and condition(e.result)]
-        return matches[-1] if matches else None
+def show_result(answer: str, events: list[Event]) -> None:
+    """Show the plan as a card centered on the destination, or the agent's explanation."""
+    lines = _answer_lines(answer)
+    weather = _last_result(events, "get_weather")
+    drive = _last_result(events, "travel_time", lambda r: r["within_limit"])
+    schedule = _last_result(events, "plan_schedule", lambda r: r["fits_before_sunset"])
 
-    weather = last("get_weather")
-    drive = last("travel_time", lambda r: r["within_limit"])
-    schedule = last("plan_schedule", lambda r: r["fits_before_sunset"])
-    if not (weather and drive and schedule):
-        return  # no complete plan, so the agent's explanation is enough
+    if not ("📍" in lines and weather and drive and schedule):
+        # No complete plan: the agent explains what it tried and why it did not work.
+        with st.container(border=True):
+            st.markdown(answer.replace("\n", "  \n"))
+        return
 
-    cards = reversed(st.columns(4))  # columns run left to right; Hebrew reads from the right
-    for card, (label, value) in zip(cards, [
-        ("🌡️ טמפרטורה", f"{weather['temp_max_c']}°"),
-        ("🌧️ סיכוי לגשם", f"{weather['rain_chance_percent']}%"),
-        ("🚗 נסיעה", f"{drive['estimated_minutes']} דק'"),
-        ("🌅 שקיעה", weather["sunset"]),
-    ]):
-        card.metric(label, value)
+    st.markdown(_plan_card_html(lines, weather, drive, schedule), unsafe_allow_html=True)
+    with st.expander("התשובה המלאה של הסוכן"):
+        st.markdown(answer.replace("\n", "  \n"))  # keep the answer's line breaks
 
 
-main()
+def _answer_lines(answer: str) -> dict[str, str]:
+    """Split the agent's five-line answer into {emoji: text}, e.g. {"📍": "חוף גינוסר (9 ק"מ...)"}."""
+    lines = {}
+    for line in answer.splitlines():
+        for emoji in ANSWER_EMOJIS:
+            if line.strip().startswith(emoji) and ":" in line:
+                lines[emoji] = line.split(":", 1)[1].strip()
+    return lines
+
+
+def _last_result(events: list[Event], tool: str, condition=lambda r: True) -> dict | None:
+    """The last successful result of a tool that meets the condition."""
+    matches = [e.result for e in events
+               if e.tool == tool and "error" not in e.result and condition(e.result)]
+    return matches[-1] if matches else None
+
+
+def _plan_card_html(lines: dict, weather: dict, drive: dict, schedule: dict) -> str:
+    """The plan card: destination in the center, small facts below it, then the day's timeline."""
+    destination = lines["📍"].split("(")[0].strip()
+    facts = [f"🌡️ {weather['temp_max_c']}°", f"🌧️ {weather['rain_chance_percent']}%",
+             f"🚗 {drive['estimated_minutes']} דק'", f"🌅 {weather['sunset']}"]
+    timeline = [("יציאה", schedule["leave_home"]), ("הגעה", schedule["arrive"]),
+                ("יציאה חזרה", schedule["leave_place"]), ("בבית", schedule["back_home"])]
+
+    facts_html = "".join(f'<span class="fact">{escape(f)}</span>' for f in facts)
+    timeline_html = '<span class="arrow">←</span>'.join(
+        f'<div class="stop"><b>{escape(time)}</b><span>{label}</span></div>' for label, time in timeline)
+    reason = f'<p class="reason">{escape(lines["🎯"])}</p>' if "🎯" in lines else ""
+    tip = f'<p class="tip">💡 {escape(lines["💡"])}</p>' if "💡" in lines else ""
+    return (f'<div class="plan-card"><div class="eyebrow">היעד שלך</div>'
+            f'<div class="destination">{escape(destination)}</div>{reason}'
+            f'<div class="facts">{facts_html}</div>'
+            f'<div class="timeline">{timeline_html}</div>{tip}</div>')
+
+
+if __name__ == "__main__":  # Streamlit runs this file as __main__; importing it does not
+    main()
