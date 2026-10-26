@@ -17,7 +17,7 @@ from agent import AgentError, Event, TripAgent  # noqa: E402  (must come after i
 from config import (MAX_DRIVE_MINUTES, MIN_DRIVE_MINUTES, ConfigError,  # noqa: E402
                     create_llm_client)
 from prompts import NO_PREFERENCE_LABEL, TRIP_TYPES, build_goal  # noqa: E402
-from tools.geocoding import geocode  # noqa: E402
+from tools.geocoding import find_settlement  # noqa: E402
 from tools.weather import MAX_DAYS_AHEAD  # noqa: E402
 
 
@@ -76,11 +76,9 @@ def _ask(question: str, parse):
 
 def _parse_origin(text: str) -> dict:
     """Find the starting city on the map, so the agent never plans from a wrong place."""
-    if not text:
-        raise ValueError("יש להזין שם של עיר.")
-    origin = geocode(text)
+    origin = find_settlement(text)
     if "error" in origin:
-        raise ValueError(f"לא הצלחתי לאתר את '{text}' על המפה. בדקו את השם ונסו שוב.")
+        raise ValueError(origin["error"])
     print(f"   📍 {origin['name']}")
     return origin
 

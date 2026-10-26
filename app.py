@@ -14,7 +14,7 @@ truststore.inject_into_ssl()
 from agent import AgentError, Event, TripAgent  # noqa: E402  (must come after inject_into_ssl)
 from config import ConfigError, create_llm_client  # noqa: E402
 from prompts import NO_PREFERENCE_LABEL, TRIP_TYPES, build_goal  # noqa: E402
-from tools.geocoding import geocode  # noqa: E402
+from tools.geocoding import find_settlement  # noqa: E402
 from tools.weather import MAX_DAYS_AHEAD  # noqa: E402
 
 TOOL_LABELS = {
@@ -83,9 +83,9 @@ def plan_trip(city: str, trip_date: datetime.date, max_minutes: int | None,
     if max_minutes is None:  # the user clicked the selected option again, clearing it
         st.warning("יש לבחור זמן נסיעה מקסימלי.")
         return
-    origin = geocode(city)
+    origin = find_settlement(city)
     if "error" in origin:
-        st.error(f"לא הצלחתי לאתר את '{city}' על המפה. בדקו את השם ונסו שוב.")
+        st.error(origin["error"])
         return
 
     events: list[Event] = []
