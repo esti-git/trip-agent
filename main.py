@@ -121,5 +121,14 @@ def _parse_trip_type(text: str) -> str | None:
     return keys[int(text) - 1]
 
 
+def safe_main() -> int:
+    """Run main(), turning any unexpected error into a short message instead of a traceback."""
+    try:
+        return main()
+    except Exception as e:  # last line of defense; known errors are handled inside main()
+        print(f"\n❌ אירעה שגיאה לא צפויה ({type(e).__name__}: {e}). נסו שוב.")
+        return 1
+
+
 if __name__ == "__main__":
-    sys.exit(main())
+    sys.exit(safe_main())

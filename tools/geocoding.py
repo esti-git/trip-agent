@@ -90,10 +90,18 @@ def pick_settlement(results: list[dict]) -> dict | None:
 def _search(query: str) -> tuple[list | None, str | None]:
     """Ask Nominatim for up to CANDIDATES matches. Returns (results, error)."""
     _respect_rate_limit()
-    return get_json(NOMINATIM_URL, {
+    results, error = get_json(NOMINATIM_URL, {
         "q": query, "format": "json", "limit": CANDIDATES,
         "countrycodes": COUNTRY_CODES, "accept-language": "he",
     })
+    if error:
+        return None, error
+    # When overloaded, the service can answer with an object such as {"error": "..."}
+    # instead of a list of places. Keep only well-formed results.
+    if not isinstance(results, list):
+        return None, "The map service returned an unexpected response."
+    return [r for r in results
+            if isinstance(r, dict) and {"lat", "lon", "display_name"} <= r.keys()], None
 
 
 def _to_place(result: dict) -> dict:

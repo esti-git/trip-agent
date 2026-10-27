@@ -155,3 +155,46 @@ def test_final_answer_markers():
     assert is_final_answer(PLAN)
     assert is_final_answer("❌ לא הצלחתי")
     assert not is_final_answer("אני בודק את מזג האוויר.")
+
+
+# --- unexpected failures -----------------------------------------------------
+
+class EmptyThenFineLLM(FakeLLM):
+    """First answers with no reply at all, then behaves normally."""
+
+    def _create(self, **request):
+        self.requests.append(request)
+        if len(self.requests) == 1:
+            return SimpleNamespace(choices=[])
+        return SimpleNamespace(choices=[SimpleNamespace(message=self.replies.pop(0))])
+
+
+def test_empty_llm_reply_moves_to_the_fallback_model(monkeypatch):
+    monkeypatch.setattr(agent.config, "LLM_FALLBACK_MODELS", "backup-model")
+    llm = EmptyThenFineLLM(reply(tool_calls=[TRAVEL_CALL]), reply(PLAN))
+    events = []
+    assert TripAgent(llm, on_event=events.append).run("goal", verified_places=[START]) == PLAN
+    assert llm.requests[1]["model"] == "backup-model"
+    assert any(e.kind == "warning" for e in events)
+
+
+def test_empty_llm_reply_without_fallback_is_a_clear_error(monkeypatch):
+    monkeypatch.setattr(agent.config, "LLM_FALLBACK_MODELS", "")
+    llm = EmptyThenFineLLM(reply(PLAN))
+    try:
+        TripAgent(llm).run("goal", verified_places=[START])
+    except agent.AgentError as e:
+        assert "לא זמין" in str(e)
+    else:
+        raise AssertionError("expected AgentError")
+
+
+def test_terminal_shows_a_message_instead_of_a_traceback(monkeypatch, capsys):
+    import main
+
+    def broken_main():
+        raise RuntimeError("something unexpected")
+
+    monkeypatch.setattr(main, "main", broken_main)
+    assert main.safe_main() == 1
+    assert "אירעה שגיאה לא צפויה" in capsys.readouterr().out

@@ -19,8 +19,13 @@ import config
 from prompts import SYSTEM_PROMPT
 from tools import TOOL_SCHEMAS, run_tool
 
+class EmptyReplyError(Exception):
+    """The LLM service answered, but with no reply in it."""
+
+
 # Errors that mean "try again later or with another model", not "your request is wrong".
-TEMPORARY_LLM_ERRORS = (RateLimitError, InternalServerError, APIConnectionError, APITimeoutError)
+TEMPORARY_LLM_ERRORS = (RateLimitError, InternalServerError, APIConnectionError, APITimeoutError,
+                        EmptyReplyError)
 
 # A final answer is a plan (its destination line) or an explanation of failure,
 # as the system prompt requires. Any other text without a tool call is unfinished.
@@ -115,6 +120,8 @@ class TripAgent:
             try:
                 response = self.client.chat.completions.create(
                     model=model, messages=messages, tools=TOOL_SCHEMAS, tool_choice=tool_choice)
+                if not response.choices:
+                    raise EmptyReplyError(f"{model} returned no reply")
                 self._prefer(model)
                 return response.choices[0].message
             except TEMPORARY_LLM_ERRORS as e:

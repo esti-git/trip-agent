@@ -217,5 +217,17 @@ def _plan_card_html(lines: dict, weather: dict, drive: dict, schedule: dict) -> 
             f'<div class="timeline">{timeline_html}</div>{tip}</div>')
 
 
+def safe_main() -> None:
+    """Run main(), turning any unexpected error into a short message instead of a traceback.
+
+    Streamlit's own control signals (stop, rerun) derive from BaseException, so
+    catching Exception here does not interfere with them.
+    """
+    try:
+        main()
+    except Exception as e:  # last line of defense; known errors are handled inside main()
+        st.error(f"אירעה שגיאה לא צפויה ({type(e).__name__}: {e}). נסו שוב.")
+
+
 if __name__ == "__main__":  # Streamlit runs this file as __main__; importing it does not
-    main()
+    safe_main()

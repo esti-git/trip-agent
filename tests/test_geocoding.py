@@ -2,6 +2,7 @@
 
 The results below have the shape Nominatim returns, trimmed to the fields used.
 """
+import tools.geocoding as geocoding
 from tools.geocoding import pick_settlement
 
 CITY = {"class": "boundary", "type": "administrative", "display_name": "מודיעין עילית"}
@@ -31,3 +32,21 @@ def test_only_non_settlements_means_none():
 
 def test_no_results_means_none():
     assert pick_settlement([]) is None
+
+
+# --- unexpected answers from the map service --------------------------------
+
+def test_overloaded_service_answer_is_reported_not_crashed(monkeypatch):
+    # When overloaded, the service can answer {"error": "..."} instead of a list.
+    monkeypatch.setattr(geocoding, "get_json", lambda url, params: ({"error": "Too many"}, None))
+    monkeypatch.setattr(geocoding, "_respect_rate_limit", lambda: None)
+    assert "error" in geocoding.find_settlement("ירושלים")
+    assert "error" in geocoding.geocode("עין חמד")
+
+
+def test_malformed_results_are_skipped(monkeypatch):
+    broken = [{"class": "place"}, "not a dict"]  # no coordinates or name
+    monkeypatch.setattr(geocoding, "get_json", lambda url, params: (broken, None))
+    monkeypatch.setattr(geocoding, "_respect_rate_limit", lambda: None)
+    assert "error" in geocoding.find_settlement("ירושלים")
+    assert "error" in geocoding.geocode("עין חמד")
