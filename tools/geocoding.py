@@ -13,13 +13,15 @@ MIN_SECONDS_BETWEEN_CALLS = 1  # Nominatim usage policy
 # Many trip sites (Qumran, Herodion, Kfar Etzion...) are mapped under "ps" in
 # OpenStreetMap. Searching "il" alone returns same-named streets instead.
 COUNTRY_CODES = "il,ps"
+# Several results, not just the best one: the real place is often listed after a
+# same-named street (see _prefer_non_street and pick_settlement).
 CANDIDATES = 5
 # OpenStreetMap classes of cities, towns, villages and neighborhoods. Everything
 # else (a street, a yeshiva, an event hall) is not a valid starting city.
 SETTLEMENT_CLASSES = {"place", "boundary"}
 
 # A box around Israel, from Eilat to the Golan. Used by the other tools to catch
-# coordinates the LLM made up or mixed up instead of taking them from geocode.
+# coordinates the LLM mixed up, such as latitude and longitude swapped.
 ISRAEL_LAT_RANGE = (29.3, 33.5)
 ISRAEL_LON_RANGE = (34.2, 36.0)
 
@@ -30,8 +32,8 @@ GEOCODE_SCHEMA = {
     "function": {
         "name": "geocode",
         "description": "Find a place in Israel by name and return its coordinates. "
-                       "Use it for the starting city and to verify every place you "
-                       "want to suggest. Hebrew names work best.",
+                       "Use it to verify every place you want to suggest; other tools "
+                       "accept only coordinates it returned. Hebrew names work best.",
         "parameters": {
             "type": "object",
             "properties": {

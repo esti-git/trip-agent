@@ -19,6 +19,7 @@ import config
 from prompts import SYSTEM_PROMPT
 from tools import TOOL_SCHEMAS, run_tool
 
+
 class EmptyReplyError(Exception):
     """The LLM service answered, but with no reply in it."""
 
@@ -62,6 +63,8 @@ class Event:
 
 
 class TripAgent:
+    """Plans a day trip by letting the LLM choose tools until it gives a final answer."""
+
     def __init__(self, client: OpenAI, on_event: Callable[[Event], None] = lambda event: None):
         self.client = client
         self.on_event = on_event
@@ -82,6 +85,8 @@ class TripAgent:
         for step in range(1, config.MAX_STEPS + 1):
             # Planning needs data, so the first turn must use a tool rather than answer.
             reply = self._ask_llm(messages, must_use_tool=(step == 1))
+            # Keep the whole reply, tool calls included: each tool result sent back
+            # below must refer to the call it answers.
             messages.append(reply.model_dump(exclude_none=True))
 
             thought = clean_thought(reply.content or "")
@@ -114,7 +119,7 @@ class TripAgent:
                 "נסו זמן נסיעה ארוך יותר או תאריך אחר.")
 
     def _ask_llm(self, messages: list, must_use_tool: bool = False) -> ChatCompletionMessage:
-        """Send the conversation to the LLM, trying the fallback models if one is overloaded."""
+        """Send the conversation to the LLM, trying the fallback models if one is unavailable."""
         tool_choice = "required" if must_use_tool else "auto"
         for model in self.models:
             try:

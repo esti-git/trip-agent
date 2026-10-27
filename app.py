@@ -35,7 +35,7 @@ TRIP_TYPE_OPTIONS = [NO_PREFERENCE, *TRIP_TYPES]
 # The line prefixes of the agent's final answer (see prompts.SYSTEM_PROMPT).
 ANSWER_EMOJIS = ("🌤️", "🎯", "📍", "🕗", "💡")
 
-# Hebrew text right to left, applied only to text elements, and the plan card.
+# The plan card: destination in the center, small facts, then the day's timeline.
 STYLE = """
 <style>
   .plan-card { direction: rtl; text-align: center; margin: 8px 0 12px;
@@ -61,6 +61,8 @@ STYLE = """
 </style>
 """
 
+# Hebrew text right to left, applied only to text elements: a fully RTL page shows
+# dates reversed (2026/10/26) and misaligns some widgets.
 RTL_STYLE = """
 <style>
   [data-testid="stMarkdownContainer"], [data-testid="stCaptionContainer"],
