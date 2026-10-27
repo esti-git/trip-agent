@@ -42,7 +42,9 @@ STYLE = """
                padding: 28px 24px; border-radius: 18px;
                background: rgba(15, 118, 110, 0.06); border: 1px solid rgba(15, 118, 110, 0.22); }
   .plan-card .eyebrow { font-size: 0.8rem; letter-spacing: 0.08em; opacity: 0.6; }
-  .plan-card .destination { font-size: 2.1rem; font-weight: 700; color: #0f766e;
+  /* One teal that reads well on both Streamlit themes. The page theme can differ from
+     the computer's dark mode, so a prefers-color-scheme rule picked the wrong shade. */
+  .plan-card .destination { font-size: 2.1rem; font-weight: 700; color: #0d9488;
                             line-height: 1.25; margin: 4px 0 10px; }
   .plan-card .reason { max-width: 520px; margin: 0 auto 18px; opacity: 0.85; line-height: 1.6; }
   .plan-card .facts { display: flex; justify-content: center; flex-wrap: wrap; gap: 8px;
@@ -56,7 +58,6 @@ STYLE = """
   .plan-card .stop span { font-size: 0.75rem; opacity: 0.6; }
   .plan-card .arrow { opacity: 0.35; padding-top: 2px; }
   .plan-card .tip { font-size: 0.9rem; opacity: 0.8; margin: 0; }
-  @media (prefers-color-scheme: dark) { .plan-card .destination { color: #2dd4bf; } }
 </style>
 """
 
