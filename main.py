@@ -38,7 +38,7 @@ def main() -> int:
         agent = TripAgent(create_llm_client(), on_event=print_event)
         print("\n🤖 הסוכן מתחיל לעבוד...\n")
         answer = agent.run(build_goal(origin, trip_date.isoformat(), max_minutes, trip_type),
-                           verified_places=[origin])
+                           verified_places=[origin], max_drive_minutes=max_minutes)
     except (ConfigError, AgentError) as e:
         print(f"\n❌ {e}")
         return 1

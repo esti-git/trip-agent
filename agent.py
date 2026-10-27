@@ -46,6 +46,17 @@ UNVERIFIED_POINT_ERROR = ("The coordinates ({lat}, {lon}) did not come from geoc
                           "starting point. Call geocode for the place first and use the "
                           "exact coordinates it returns.")
 
+# plan_schedule arguments that must repeat a value an earlier tool returned:
+# argument -> (tool that returns it, key in that tool's result).
+CHECKED_VALUES = {
+    "sunset": ("get_weather", "sunset"),
+    "drive_minutes": ("travel_time", "estimated_minutes"),
+}
+WRONG_LIMIT_ERROR = ("The user's maximum driving time is {limit} minutes, not {given}. "
+                     "Call travel_time again with max_minutes={limit}.")
+UNCHECKED_VALUE_ERROR = ("{argument}={given} is not a value {tool} returned (it returned: "
+                         "{known}). Use the exact value from {tool}'s result.")
+
 
 class AgentError(Exception):
     """Raised when the agent cannot talk to the LLM at all."""
@@ -71,15 +82,20 @@ class TripAgent:
         fallbacks = [m.strip() for m in config.LLM_FALLBACK_MODELS.split(",") if m.strip()]
         self.models = [config.LLM_MODEL, *fallbacks]
 
-    def run(self, goal: str, verified_places: list[dict] = ()) -> str:
+    def run(self, goal: str, verified_places: list[dict] = (),
+            max_drive_minutes: int | None = None) -> str:
         """Work toward the goal and return the agent's final answer.
 
         verified_places are places already checked on the map (the starting city),
         as {"lat", "lon"} dicts. Places found by geocode during the run are added.
+        max_drive_minutes is the user's limit; travel_time must be asked with it.
         """
         messages = [{"role": "system", "content": SYSTEM_PROMPT},
                     {"role": "user", "content": goal}]
         self.verified_points = [(p["lat"], p["lon"]) for p in verified_places]
+        self.max_drive_minutes = max_drive_minutes
+        # Every value the tools returned for CHECKED_VALUES, e.g. {"sunset": {"16:52"}}.
+        self.returned_values = {argument: set() for argument in CHECKED_VALUES}
 
         nudges = 0
         for step in range(1, config.MAX_STEPS + 1):
@@ -105,11 +121,12 @@ class TripAgent:
                 self.on_event(Event("thought", text=thought))
             for call in reply.tool_calls:
                 name, arguments = call.function.name, _parse_arguments(call.function.arguments)
-                point_error = self._unverified_point_error(name, arguments)
-                result = {"error": point_error} if point_error else run_tool(
+                fact_error = (self._unverified_point_error(name, arguments) or
+                              self._unverified_value_error(name, arguments))
+                result = {"error": fact_error} if fact_error else run_tool(
                     name, call.function.arguments)
-                if name == "geocode" and "error" not in result:
-                    self.verified_points.append((result["lat"], result["lon"]))
+                if "error" not in result:
+                    self._remember_facts(name, result)
                 self.on_event(Event("tool", step=step, tool=name, arguments=arguments,
                                     result=result))
                 messages.append({"role": "tool", "tool_call_id": call.id,
@@ -153,6 +170,35 @@ class TripAgent:
                        for v_lat, v_lon in self.verified_points):
                 return UNVERIFIED_POINT_ERROR.format(lat=lat, lon=lon)
         return None
+
+    def _unverified_value_error(self, tool: str, arguments: dict) -> str | None:
+        """An error if the tool was given a number the user or an earlier tool did not give.
+
+        Without this, the LLM could ask travel_time with a larger limit than the
+        user's and get within_limit: true, or plan a schedule with a made-up sunset.
+        """
+        if tool == "travel_time" and self.max_drive_minutes is not None:
+            given = arguments.get("max_minutes")
+            if isinstance(given, (int, float)) and given != self.max_drive_minutes:
+                return WRONG_LIMIT_ERROR.format(limit=self.max_drive_minutes, given=given)
+        if tool == "plan_schedule":
+            for argument, (source_tool, _) in CHECKED_VALUES.items():
+                given, known = arguments.get(argument), self.returned_values[argument]
+                if not isinstance(given, (str, int, float)):
+                    continue  # missing or wrong types: the tool itself reports that
+                if given not in known:
+                    return UNCHECKED_VALUE_ERROR.format(
+                        argument=argument, given=given, tool=source_tool,
+                        known=", ".join(map(str, sorted(known))) or "nothing yet")
+        return None
+
+    def _remember_facts(self, tool: str, result: dict) -> None:
+        """Keep what a tool returned, so later tool calls can be checked against it."""
+        if tool == "geocode":
+            self.verified_points.append((result["lat"], result["lon"]))
+        for argument, (source_tool, key) in CHECKED_VALUES.items():
+            if tool == source_tool and key in result:
+                self.returned_values[argument].add(result[key])
 
     def _prefer(self, model: str) -> None:
         """Try the model that just worked first next time, instead of the ones that failed."""

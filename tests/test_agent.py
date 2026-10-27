@@ -151,6 +151,78 @@ def test_slightly_rounded_coordinates_are_accepted():
     assert "error" not in result
 
 
+# --- numbers must come from the user or an earlier tool ----------------------
+
+WEATHER_CALL = {"id": "call_w", "type": "function", "function": {
+    "name": "get_weather", "arguments": json.dumps({**START, "date": "2026-10-26"})}}
+
+
+def schedule_call(drive_minutes, sunset):
+    return {"id": "call_s", "type": "function", "function": {
+        "name": "plan_schedule",
+        "arguments": json.dumps({"date": "2030-01-01", "leave_home": "08:00", "visit_hours": 2,
+                                 "drive_minutes": drive_minutes, "sunset": sunset})}}
+
+
+def fake_weather(monkeypatch):
+    real_run_tool = agent.run_tool
+
+    def fake_run_tool(name, arguments_json):  # get_weather without the internet
+        if name == "get_weather":
+            return {"temp_max_c": 35.1, "sunset": "16:52"}
+        return real_run_tool(name, arguments_json)
+
+    monkeypatch.setattr(agent, "run_tool", fake_run_tool)
+
+
+def test_travel_time_with_a_larger_limit_than_the_users_is_rejected():
+    llm = FakeLLM(reply(tool_calls=[TRAVEL_CALL]), reply(PLAN))  # asks with max_minutes=60
+    events = []
+    TripAgent(llm, on_event=events.append).run("goal", verified_places=[START],
+                                               max_drive_minutes=30)
+    [result] = [e.result for e in events if e.kind == "tool"]
+    assert "max_minutes=30" in result["error"]
+
+
+def test_travel_time_with_the_users_limit_is_accepted():
+    events = []
+    TripAgent(FakeLLM(reply(tool_calls=[TRAVEL_CALL]), reply(PLAN)),
+              on_event=events.append).run("goal", verified_places=[START], max_drive_minutes=60)
+    [result] = [e.result for e in events if e.kind == "tool"]
+    assert result["within_limit"] is True
+
+
+def test_schedule_with_returned_sunset_and_drive_time_is_accepted(monkeypatch):
+    fake_weather(monkeypatch)
+    llm = FakeLLM(reply(tool_calls=[WEATHER_CALL, TRAVEL_CALL]),  # TRAVEL_CALL drives 0 minutes
+                  reply(tool_calls=[schedule_call(0, "16:52")]), reply(PLAN))
+    *_, schedule = tool_results(llm, [START])
+    assert schedule["fits_before_sunset"] is True
+
+
+def test_schedule_with_a_made_up_sunset_is_rejected(monkeypatch):
+    fake_weather(monkeypatch)
+    llm = FakeLLM(reply(tool_calls=[WEATHER_CALL, TRAVEL_CALL]),
+                  reply(tool_calls=[schedule_call(0, "18:30")]), reply(PLAN))
+    *_, schedule = tool_results(llm, [START])
+    assert "sunset=18:30" in schedule["error"] and "16:52" in schedule["error"]
+
+
+def test_schedule_with_a_made_up_drive_time_is_rejected(monkeypatch):
+    fake_weather(monkeypatch)
+    llm = FakeLLM(reply(tool_calls=[WEATHER_CALL, TRAVEL_CALL]),
+                  reply(tool_calls=[schedule_call(15, "16:52")]), reply(PLAN))
+    *_, schedule = tool_results(llm, [START])
+    assert "drive_minutes=15" in schedule["error"]
+
+
+def test_schedule_before_any_weather_is_rejected():
+    llm = FakeLLM(reply(tool_calls=[TRAVEL_CALL]),
+                  reply(tool_calls=[schedule_call(0, "16:52")]), reply(PLAN))
+    *_, schedule = tool_results(llm, [START])
+    assert "nothing yet" in schedule["error"]
+
+
 def test_final_answer_markers():
     assert is_final_answer(PLAN)
     assert is_final_answer("❌ לא הצלחתי")

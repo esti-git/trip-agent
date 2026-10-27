@@ -2,7 +2,7 @@
 
 מאיזו עיר יוצאים? טבריה
    📍 טבריה, נפת כנרת, מחוז הצפון
-באיזה תאריך? (DD/MM/YYYY): 26/10/2026
+באיזה תאריך? (DD/MM/YYYY): 05/11/2026
 זמן נסיעה מקסימלי לכיוון אחד, בדקות: 60
 איזה סוג טיול? (Enter = ללא העדפה)
   1. 🏞️ מסלול ונוף
@@ -14,26 +14,23 @@
 
 🤖 הסוכן מתחיל לעבוד...
 
-💭 אני הולך לבדוק מה תהיה התחזית למזג האוויר בטבריה היום, כדי להתאים טיול שמתאים למזג האוויר.
-[1] 🔧 get_weather(lat=32.79385, lon=35.53286, date='2026-10-26')
-     ✅ {"date": "2026-10-26", "temp_max_c": 35.1, "temp_min_c": 21.3, "rain_chance_percent": 18, "rain_mm": 0.2, "wind_max_kmh": 15.8, "uv_index_max": 5.05, "sunrise": "05:50", "sunset": "16:52"}
-💭 מזג האוויר בטבריה היום יהיה חם מאוד עם טמפ' מקסימלית של 35.1 מעלות. קיימת אפשרות לגשם של 18%. על מנת לנצל את היום בצורה הטובה ביותר, אני אמצא מסלול טיול להליכה עם נופים שיתאים לעונה החמה. 
-
-אני אבדוק את מזג האוויר ביעד מתאים שאני שוקל להגיע אליו.
-[2] 🔧 geocode(place='הגן הלאומי כוכב הירדן')
-     ❌ {"error": "'הגן הלאומי כוכב הירדן' was not found on the map. Try the Hebrew name or a nearby well-known place."}
-[3] 🔧 geocode(place='גן לאומי כוכב הירדן')
-     ✅ {"name": "גן לאומי כוכב הירדן, מועצה אזורית עמק המעיינות, נפת יזרעאל", "lat": 32.59545, "lon": 35.52195}
-[4] 🔧 travel_time(from_lat=32.79385, from_lon=35.53286, to_lat=32.59545, to_lon=35.52195, max_minutes=60)
-     ✅ {"straight_line_km": 22.1, "estimated_road_km": 28.7, "estimated_minutes": 29, "within_limit": true}
-[5] 🔧 get_weather(lat=32.59545, lon=35.52195, date='2026-10-26')
-     ❌ {"error": "The service did not answer in time."}
-[6] 🔧 plan_schedule(date='2026-10-26', leave_home='14:40', drive_minutes=29, visit_hours=1, sunset='16:52')
-     ✅ {"leave_home": "14:40", "arrive": "15:09", "leave_place": "16:09", "back_home": "16:38", "latest_leave_place": "16:22", "fits_before_sunset": true, "spare_minutes": 13, "max_visit_hours": 1.22}
+[1] 🔧 get_weather(lat=32.79385, lon=35.53286, date='2026-11-05')
+     ✅ {"date": "2026-11-05", "temp_max_c": 21.1, "temp_min_c": 16.6, "rain_chance_percent": 76, "rain_mm": 9.6, "wind_max_kmh": 11.3, "uv_index_max": 4.1, "sunrise": "05:59", "sunset": "16:43"}
+💭 מזג האוויר בטבריה צופה גשם כבד ולכן אתכנן פעילות מקורה.
+[3] 🔧 geocode(place='המוזיאון לאומנות בקיבוץ עין דור')
+     ❌ {"error": "'המוזיאון לאומנות בקיבוץ עין דור' was not found on the map. Try the Hebrew name or a nearby well-known place."}
+[4] 🔧 geocode(place='עין דור')
+     ✅ {"name": "עין דור, מועצה אזורית עמק יזרעאל, נפת יזרעאל", "lat": 32.65625, "lon": 35.41704}
+[5] 🔧 travel_time(from_lat=32.79385, from_lon=35.53286, to_lat=32.65625, to_lon=35.41704, max_minutes=60)
+     ✅ {"straight_line_km": 18.7, "estimated_road_km": 24.4, "estimated_minutes": 24, "within_limit": true}
+[5] 🔧 get_weather(lat=32.65625, lon=35.41704, date='2026-11-05')
+     ✅ {"date": "2026-11-05", "temp_max_c": 20.9, "temp_min_c": 14.0, "rain_chance_percent": 76, "rain_mm": 4.8, "wind_max_kmh": 15.0, "uv_index_max": 4.15, "sunrise": "05:59", "sunset": "16:44"}
+[6] 🔧 plan_schedule(date='2026-11-05', leave_home='09:00', drive_minutes=24, visit_hours=3, sunset='16:44')
+     ✅ {"leave_home": "09:00", "arrive": "09:24", "leave_place": "12:24", "back_home": "12:48", "latest_leave_place": "16:14", "fits_before_sunset": true, "spare_minutes": 230, "max_visit_hours": 6.83}
 
 ==================================================
-🌤️ תחזית: 35.1 מעלות, 18% גשם, רוח עד 15.8 קמ"ש  
-🎯 סוג הטיול: ביקשת מסלול עם נופים, והיום יש טמפרטורות גבוהות, ולכן בחרתי בטיול בגן לאומי כוכב הירדן שכולל נופים יפים וטרסות.  
-📍 יעד: גן לאומי כוכב הירדן (כ-29 ק"מ, כ-29 דק' נסיעה)  
-🕗 לוח זמנים: יציאה 14:40 · הגעה 15:09 · יציאה חזרה 16:09 (לכל המאוחר 16:22) · בבית 16:38  
-💡 טיפ: הקפד לשתות מים במהלך השהות והיה מוכן לחום.
+🌤️ תחזית: 16.6-21.1°C, סיכוי לגשם 76%, רוח עד 15 קמ"ש  
+🎯 סוג הטיול: ביקשת מסלול ונוף, אך מזג האוויר גשום ולכן בחרתי בפעילות מקורה: המוזיאון לאומנות בקיבוץ עין דור  
+📍 יעד: עין דור (24.4 ק"מ, כ-24 דק' נסיעה)  
+🕗 לוח זמנים: יציאה 09:00 · הגעה 09:24 · יציאה חזרה 12:24 (לכל המאוחר 16:14) · בבית 12:48  
+💡 טיפ: הצטיידו בבגדי גשם ומטריות למקרה של גשם בלתי צפוי בכניסה למוזיאון.
