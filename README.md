@@ -1,4 +1,6 @@
-# 🗺️ Trip Agent: סוכן לתכנון טיול יומי
+<div dir="rtl">
+
+# 🗺️ סוכן לתכנון טיול יומי (Trip Agent)
 
 אג'נט שמתכנן טיול יומי בישראל שמתאים למזג האוויר, לזמן הנסיעה ולשעות האור.
 
@@ -16,6 +18,8 @@
 
 ריצה אמיתית מהטרמינל: טבריה ביום חם (35°), ב-14:35, עד 60 דקות נסיעה, וביקשו **מסלול ונוף** (מקוצר):
 
+<div dir="ltr">
+
 ```
 [1] 🔧 get_weather(טבריה, 2026-10-26)        ✅ 35.1°, שקיעה 16:52
 [2] 🔧 geocode('הגן הלאומי כוכב הירדן')       ❌ לא נמצא            ← מנסה שם אחר
@@ -29,11 +33,15 @@
 🕗 לוח זמנים: יציאה 14:40 · הגעה 15:09 · יציאה חזרה 16:09 · בבית 16:38
 ```
 
+</div>
+
 הפלט המלא: [sample_run.txt](sample_run.txt)
 
 ## הוראות הפעלה
 
 **דרישות:** Python 3.10 ומעלה, ומפתח API של OpenAI. ריצה עולה פחות מסנט.
+
+<div dir="ltr">
 
 ```bash
 git clone https://github.com/esti-git/trip-agent.git
@@ -41,32 +49,55 @@ cd trip-agent
 python -m venv .venv
 .venv\Scripts\python -m pip install -r requirements.txt
 ```
-(ב-Mac או ב-Linux: `.venv/bin/python` במקום `.venv\Scripts\python`)
 
-**מפתח:** מעתיקים את `.env.example` לקובץ בשם `.env`, ומדביקים בו מפתח מ-[OpenAI](https://platform.openai.com/api-keys):
+</div>
+
+(ב-Mac או ב-Linux: <code dir="ltr">.venv/bin/python</code> במקום <code dir="ltr">.venv\Scripts\python</code>)
+
+**מפתח:** מעתיקים את <code dir="ltr">.env.example</code> לקובץ בשם <code dir="ltr">.env</code>, ומדביקים בו מפתח מ-[OpenAI](https://platform.openai.com/api-keys):
+
+<div dir="ltr">
+
 ```
 LLM_API_KEY=sk-...
 ```
 
+</div>
+
 **הרצה בממשק בדפדפן** (הצעדים מופיעים בזמן אמת):
+
+<div dir="ltr">
+
 ```bash
 .venv\Scripts\python -m streamlit run app.py
 ```
 
+</div>
+
 **או בטרמינל:**
+
+<div dir="ltr">
+
 ```bash
 .venv\Scripts\python main.py
 ```
 
+</div>
+
 **בדיקות** (בלי אינטרנט ובלי מפתח):
+
+<div dir="ltr">
+
 ```bash
 .venv\Scripts\python -m pytest
 ```
 
+</div>
+
 <details>
 <summary>הגדרות נוספות: מודל אחר, או Gemini בחינם</summary>
 
-כל ההגדרות נמצאות ב-`.env`, ואין צורך לשנות קוד:
+כל ההגדרות נמצאות ב-<code dir="ltr">.env</code>, ואין צורך לשנות קוד:
 
 | משתנה | ברירת מחדל | הסבר |
 |---|---|---|
@@ -75,13 +106,19 @@ LLM_API_KEY=sk-...
 | `LLM_MODEL` | `gpt-4o-mini` | המודל |
 | `LLM_FALLBACK_MODELS` | (אין) | מודלי גיבוי, לפי הסדר, למקרה שהמודל עמוס |
 
-Gemini בחינם (מפתח ב-[Google AI Studio](https://aistudio.google.com/apikey)). המכסה היומית שלו קטנה, ולכן כדאי להגדיר גם מודלי גיבוי:
+שימוש ב-Gemini בחינם (מפתח ב-[Google AI Studio](https://aistudio.google.com/apikey)). המכסה היומית שלו קטנה, ולכן כדאי להגדיר גם מודלי גיבוי:
+
+<div dir="ltr">
+
 ```
 LLM_API_KEY=המפתח_של_Gemini
 LLM_BASE_URL=https://generativelanguage.googleapis.com/v1beta/openai/
 LLM_MODEL=gemini-3.5-flash
 LLM_FALLBACK_MODELS=gemini-flash-latest,gemini-flash-lite-latest
 ```
+
+</div>
+
 </details>
 
 ## איך האג'נט עובד
@@ -90,7 +127,7 @@ LLM_FALLBACK_MODELS=gemini-flash-latest,gemini-flash-lite-latest
 |---|---|
 | **קבלת מטרה** | הקלט של המשתמש הופך להודעת מטרה ל-LLM |
 | **קבלת החלטות** | ה-LLM בוחר בכל צעד איזה כלי להפעיל. בקוד אין סדר צעדים קבוע ואין `if` על מזג האוויר |
-| **כלים** | `geocode` (מקום ← מיקום, OpenStreetMap), `get_weather` (תחזית ושקיעה, Open-Meteo), `travel_time` (זמן נסיעה משוער), `plan_schedule` (לוח זמנים מול השקיעה) |
+| **כלים** | איתור מקום (`geocode`, OpenStreetMap), תחזית ושקיעה (`get_weather`, Open-Meteo), זמן נסיעה משוער (`travel_time`), לוח זמנים מול השקיעה (`plan_schedule`) |
 | **בחינת התוצאה** | כל תוצאה, כולל שגיאות, חוזרת ל-LLM: רחוק מדי? מחפש קרוב יותר. לא מספיקים? מקצר את הביקור. לא נמצא? מנסה שם אחר |
 | **תנאי סיום** | תוכנית מאומתת (📍), הסבר למה אין (❌), או עצירה אחרי 15 צעדים |
 
@@ -107,11 +144,11 @@ LLM_FALLBACK_MODELS=gemini-flash-latest,gemini-flash-lite-latest
 הבדיקות האלה לא מכתיבות ל-LLM מה לעשות. הן רק מבטיחות שהעובדות שהוא מחליט לפיהן נכונות. כשבדיקה נכשלת, הוא מקבל שגיאה ומחליט בעצמו איך להמשיך.
 
 **החלטות נוספות:**
-- **OpenAI עם `gpt-4o-mini`**, כמו שההוראות ממליצות. התחלתי עם Gemini החינמי, אבל המכסה שלו נגמרה כבר בפיתוח.
+- **שימוש ב-OpenAI עם `gpt-4o-mini`**, כמו שההוראות ממליצות. התחלתי עם Gemini החינמי, אבל המכסה שלו נגמרה כבר בפיתוח.
 - **המקומות מגיעים מה-LLM ומאומתים מול המפה.** מאגר האטרקציות של OpenStreetMap (Overpass) לא החזיר תשובות בבדיקות.
 - **זמן הנסיעה הוא הערכה:** קו אוויר × 1.3 ב-60 קמ"ש. שירות ניווט חינמי לא היה אמין, וההערכה מספיקה כדי לבחור בין יעדים.
 - **"לפני השקיעה"** = עוזבים את המקום לפחות 30 דקות לפני השקיעה.
-- **`truststore`** מאפשר ל-Python להתחבר מאחורי סינון כמו NetFree. במחשב רגיל הוא לא משנה כלום.
+- **הספרייה `truststore`** מאפשרת ל-Python להתחבר מאחורי סינון כמו NetFree. במחשב רגיל הוא לא משנה כלום.
 
 ## טיפול בשגיאות
 
@@ -122,6 +159,8 @@ LLM_FALLBACK_MODELS=gemini-flash-latest,gemini-flash-lite-latest
 - **59 בדיקות אוטומטיות**, כולל תקלות מדומות, בלי אינטרנט ובלי LLM.
 
 ## מבנה הפרויקט
+
+<div dir="ltr">
 
 ```
 trip-agent/
@@ -135,3 +174,8 @@ trip-agent/
 ├── docs/             צילום המסך
 └── sample_run.txt    פלט של ריצה מלאה
 ```
+
+</div>
+
+</div>
+
