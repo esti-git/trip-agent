@@ -124,7 +124,8 @@ def plan_trip(city: str, trip_date: datetime.date, max_minutes: int | None,
 
         try:
             agent = TripAgent(create_llm_client(), on_event=show_event)
-            answer = agent.run(build_goal(origin, trip_date.isoformat(), max_minutes, trip_type))
+            answer = agent.run(build_goal(origin, trip_date.isoformat(), max_minutes, trip_type),
+                               verified_places=[origin])
         except (ConfigError, AgentError) as e:
             status.update(label="הסוכן לא הצליח לעבוד", state="error")
             st.error(str(e))

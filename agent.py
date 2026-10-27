@@ -29,6 +29,17 @@ MAX_NUDGES = 2
 CONTINUE_NUDGE = ("Continue: call the next tool now. If you are done, give the final "
                   "answer in the required format.")
 
+# Tools that take coordinates, and the argument pairs that hold them. These must be
+# real places: the starting city or a geocode result, never numbers the LLM made up.
+POINT_ARGUMENTS = {
+    "get_weather": [("lat", "lon")],
+    "travel_time": [("from_lat", "from_lon"), ("to_lat", "to_lon")],
+}
+COORDINATE_TOLERANCE = 0.001  # about 100 m: the LLM sometimes rounds the numbers
+UNVERIFIED_POINT_ERROR = ("The coordinates ({lat}, {lon}) did not come from geocode or the "
+                          "starting point. Call geocode for the place first and use the "
+                          "exact coordinates it returns.")
+
 
 class AgentError(Exception):
     """Raised when the agent cannot talk to the LLM at all."""
@@ -52,10 +63,15 @@ class TripAgent:
         fallbacks = [m.strip() for m in config.LLM_FALLBACK_MODELS.split(",") if m.strip()]
         self.models = [config.LLM_MODEL, *fallbacks]
 
-    def run(self, goal: str) -> str:
-        """Work toward the goal and return the agent's final answer."""
+    def run(self, goal: str, verified_places: list[dict] = ()) -> str:
+        """Work toward the goal and return the agent's final answer.
+
+        verified_places are places already checked on the map (the starting city),
+        as {"lat", "lon"} dicts. Places found by geocode during the run are added.
+        """
         messages = [{"role": "system", "content": SYSTEM_PROMPT},
                     {"role": "user", "content": goal}]
+        self.verified_points = [(p["lat"], p["lon"]) for p in verified_places]
 
         nudges = 0
         for step in range(1, config.MAX_STEPS + 1):
@@ -78,9 +94,13 @@ class TripAgent:
             if thought:
                 self.on_event(Event("thought", text=thought))
             for call in reply.tool_calls:
-                result = run_tool(call.function.name, call.function.arguments)
-                self.on_event(Event("tool", step=step, tool=call.function.name,
-                                    arguments=_parse_arguments(call.function.arguments),
+                name, arguments = call.function.name, _parse_arguments(call.function.arguments)
+                point_error = self._unverified_point_error(name, arguments)
+                result = {"error": point_error} if point_error else run_tool(
+                    name, call.function.arguments)
+                if name == "geocode" and "error" not in result:
+                    self.verified_points.append((result["lat"], result["lon"]))
+                self.on_event(Event("tool", step=step, tool=name, arguments=arguments,
                                     result=result))
                 messages.append({"role": "tool", "tool_call_id": call.id,
                                  "content": json.dumps(result, ensure_ascii=False)})
@@ -105,6 +125,22 @@ class TripAgent:
                                  "בדקו את LLM_API_KEY ואת LLM_MODEL בקובץ .env.") from e
         raise AgentError(f"שירות ה-LLM לא זמין כרגע ({type(last_error).__name__}). "
                          "נסו שוב בעוד כמה דקות.") from last_error
+
+    def _unverified_point_error(self, tool: str, arguments: dict) -> str | None:
+        """An error if the tool was given coordinates that are not a verified place.
+
+        Without this, the LLM once could not find "פארק יקום", made up coordinates
+        near the start, and got a 22-minute drive for a place an hour away.
+        """
+        for lat_key, lon_key in POINT_ARGUMENTS.get(tool, []):
+            lat, lon = arguments.get(lat_key), arguments.get(lon_key)
+            if not isinstance(lat, (int, float)) or not isinstance(lon, (int, float)):
+                continue  # missing or wrong types: the tool itself reports that
+            if not any(abs(lat - v_lat) <= COORDINATE_TOLERANCE and
+                       abs(lon - v_lon) <= COORDINATE_TOLERANCE
+                       for v_lat, v_lon in self.verified_points):
+                return UNVERIFIED_POINT_ERROR.format(lat=lat, lon=lon)
+        return None
 
     def _prefer(self, model: str) -> None:
         """Try the model that just worked first next time, instead of the ones that failed."""

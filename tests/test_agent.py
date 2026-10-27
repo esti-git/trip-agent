@@ -7,6 +7,7 @@ from types import SimpleNamespace
 
 from openai.types.chat import ChatCompletionMessage
 
+import agent
 from agent import TripAgent, clean_thought, is_final_answer
 
 
@@ -39,10 +40,20 @@ def test_text_with_braces_inside_a_sentence_is_kept():
 # --- the agent loop, with a fake LLM that returns scripted replies ----------
 
 PLAN = "🌤️ תחזית: נעים\n🎯 סוג הטיול: טבע\n📍 יעד: עין חמד (10 ק\"מ)\n🕗 לוח זמנים: ...\n💡 טיפ: מים"
-TRAVEL_CALL = {"id": "call_1", "type": "function", "function": {
-    "name": "travel_time",
-    "arguments": json.dumps({"from_lat": 31.78, "from_lon": 35.22, "to_lat": 31.79,
-                             "to_lon": 35.14, "max_minutes": 60})}}
+START = {"lat": 31.78, "lon": 35.22}        # the verified starting city
+EIN_HEMED = {"lat": 31.79325, "lon": 35.13683}
+
+
+def travel_call(to, call_id="call_1"):
+    return {"id": call_id, "type": "function", "function": {
+        "name": "travel_time",
+        "arguments": json.dumps({"from_lat": START["lat"], "from_lon": START["lon"],
+                                 "to_lat": to["lat"], "to_lon": to["lon"], "max_minutes": 60})}}
+
+
+TRAVEL_CALL = travel_call(START)  # a trip to a verified point; enough to test the loop
+GEOCODE_CALL = {"id": "call_g", "type": "function",
+                "function": {"name": "geocode", "arguments": json.dumps({"place": "עין חמד"})}}
 
 
 def reply(content=None, tool_calls=None):
@@ -65,7 +76,7 @@ class FakeLLM:
 
 def test_first_turn_must_use_a_tool_and_later_turns_may_answer():
     llm = FakeLLM(reply(tool_calls=[TRAVEL_CALL]), reply(PLAN))
-    assert TripAgent(llm).run("goal") == PLAN
+    assert TripAgent(llm).run("goal", verified_places=[START]) == PLAN
     assert llm.requests[0]["tool_choice"] == "required"
     assert llm.requests[1]["tool_choice"] == "auto"
 
@@ -74,7 +85,7 @@ def test_announcing_a_check_without_a_tool_call_is_not_the_answer():
     # The real bug: the model wrote "I am checking the weather" and called nothing.
     llm = FakeLLM(reply(tool_calls=[TRAVEL_CALL]), reply("אני בודק את מזג האוויר."), reply(PLAN))
     events = []
-    assert TripAgent(llm, on_event=events.append).run("goal") == PLAN
+    assert TripAgent(llm, on_event=events.append).run("goal", verified_places=[START]) == PLAN
     nudges = [m for m in llm.requests[-1]["messages"]
               if m.get("role") == "user" and "Continue" in m["content"]]
     assert len(nudges) == 1
@@ -84,21 +95,60 @@ def test_announcing_a_check_without_a_tool_call_is_not_the_answer():
 def test_explanation_of_failure_is_a_final_answer():
     failure = "❌ לא מצאתי טיול שמסתיים לפני השקיעה."
     llm = FakeLLM(reply(tool_calls=[TRAVEL_CALL]), reply(failure))
-    assert TripAgent(llm).run("goal") == failure
+    assert TripAgent(llm).run("goal", verified_places=[START]) == failure
 
 
 def test_gives_up_nudging_after_two_tries():
     llm = FakeLLM(reply(tool_calls=[TRAVEL_CALL]), reply("רגע"), reply("עוד רגע"), reply("סיימתי"))
-    assert TripAgent(llm).run("goal") == "סיימתי"
+    assert TripAgent(llm).run("goal", verified_places=[START]) == "סיימתי"
     assert len(llm.requests) == 4
 
 
 def test_tool_results_are_reported_as_events():
     events = []
-    TripAgent(FakeLLM(reply(tool_calls=[TRAVEL_CALL]), reply(PLAN)), on_event=events.append).run("goal")
+    TripAgent(FakeLLM(reply(tool_calls=[TRAVEL_CALL]), reply(PLAN)),
+              on_event=events.append).run("goal", verified_places=[START])
     tool_events = [e for e in events if e.kind == "tool"]
     assert tool_events[0].tool == "travel_time"
     assert tool_events[0].result["within_limit"] is True
+
+
+# --- coordinates must belong to verified places ------------------------------
+
+def tool_results(llm, verified_places):
+    events = []
+    TripAgent(llm, on_event=events.append).run("goal", verified_places=verified_places)
+    return [e.result for e in events if e.kind == "tool"]
+
+
+def test_made_up_coordinates_are_rejected():
+    # The real bug: "פארק יקום" was not found, and the LLM invented a point near the start.
+    llm = FakeLLM(reply(tool_calls=[travel_call(EIN_HEMED)]), reply(PLAN))
+    [result] = tool_results(llm, [START])
+    assert "did not come from geocode" in result["error"]
+
+
+def test_a_place_found_by_geocode_becomes_verified(monkeypatch):
+    real_run_tool = agent.run_tool
+
+    def fake_run_tool(name, arguments_json):  # geocode without the internet
+        if name == "geocode":
+            return {"name": "עין חמד", **EIN_HEMED}
+        return real_run_tool(name, arguments_json)
+
+    monkeypatch.setattr(agent, "run_tool", fake_run_tool)
+    llm = FakeLLM(reply(tool_calls=[GEOCODE_CALL]), reply(tool_calls=[travel_call(EIN_HEMED)]),
+                  reply(PLAN))
+    geocode_result, travel_result = tool_results(llm, [START])
+    assert "error" not in travel_result
+    assert travel_result["within_limit"] is True
+
+
+def test_slightly_rounded_coordinates_are_accepted():
+    rounded = {"lat": 31.7802, "lon": 35.2198}  # START rounded by the LLM, about 30 m off
+    llm = FakeLLM(reply(tool_calls=[travel_call(rounded)]), reply(PLAN))
+    [result] = tool_results(llm, [START])
+    assert "error" not in result
 
 
 def test_final_answer_markers():
